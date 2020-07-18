@@ -28,26 +28,6 @@ namespace MComponents.Simple.Odata.Client
             mOneModel = pOneModel;
         }
 
-        /*
-        public override async Task<IEnumerable<T>> GetData(IQueryable<T> pQueryable)
-        {
-            try
-            {
-                var client = GetFilteredClient(pQueryable);
-                client = client.Expand(mPropertyToMany);
-
-                var ret = (await client.FindEntriesAsync()).ToArray();
-
-
-                return ret;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
-            }
-        }*/
-
 
         protected override async Task<IBoundClient<T>> GetFilteredClient(IQueryable<T> data)
         {
@@ -106,33 +86,14 @@ namespace MComponents.Simple.Odata.Client
             return await mClient.For<T>().Filter(mPropertyToMany + "/Id eq " + mOneId).Count().FindScalarAsync<long>();
         }
 
-        /*
-
         public override async Task Add(Guid pId, T pNewValue)
         {
-            try
-            {
-                //      IMember member = new DummyMember(Guid.Empty);
+            var batch = new ODataBatch(mClient, true);
 
-                var batch = new ODataBatch(mClient, true);
+            batch += c => c.For<T>().Set(pNewValue).InsertEntryAsync(false);
+            batch += c => c.For<T>().Key(pId).LinkEntryAsync(mOneModel, mPropertyToMany);
 
-                //  async Task actionAdd(IODataClient c)
-                //     async Task actionLinkGroup(IODataClient c) => 
-
-                batch += c => c.For<T>().Set(pNewValue).InsertEntryAsync(false);
-                batch += c => c.For<T>().Key(pId).LinkEntryAsync(mOneModel);
-
-                //    batch += c => c.For<GroupMember>().Key(pId).LinkEntryAsync<IMember>(member, nameof(GroupMember.Member));
-
-                await batch.ExecuteAsync();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
+            await batch.ExecuteAsync();
         }
-        */
-
-
     }
 }
