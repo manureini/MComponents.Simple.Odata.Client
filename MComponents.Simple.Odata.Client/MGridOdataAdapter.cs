@@ -4,6 +4,7 @@ using Simple.OData.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 
 namespace MComponents.Simple.Odata.Client
@@ -17,11 +18,12 @@ namespace MComponents.Simple.Odata.Client
             mClient = pClient;
         }
 
-        public async Task<IEnumerable<T>> GetData(IQueryable<T> pQueryable)
+        public virtual async Task<IEnumerable<T>> GetData(IQueryable<T> pQueryable)
         {
             try
             {
-                return await GetFilteredClient(pQueryable).FindEntriesAsync();
+                var client = await GetFilteredClient(pQueryable);
+                return await client.FindEntriesAsync();
             }
             catch (Exception e)
             {
@@ -30,7 +32,7 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        public async Task<long> GetDataCount(IQueryable<T> pQueryable)
+        public virtual async Task<long> GetDataCount(IQueryable<T> pQueryable)
         {
             try
             {
@@ -39,7 +41,9 @@ namespace MComponents.Simple.Odata.Client
                     return (await GetData(pQueryable)).Count();
                 }
 
-                return await GetFilteredClient(pQueryable).Count().FindScalarAsync<long>();
+                var client = await GetFilteredClient(pQueryable);
+
+                return await client.Count().FindScalarAsync<long>();
             }
             catch (Exception e)
             {
@@ -48,7 +52,7 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        public async Task<long> GetTotalDataCount()
+        public virtual async Task<long> GetTotalDataCount()
         {
             try
             {
@@ -61,18 +65,18 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        protected IBoundClient<T> GetFilteredClient(IQueryable<T> data)
+        protected virtual Task<IBoundClient<T>> GetFilteredClient(IQueryable<T> data)
         {
             OdataQueryExpressionVisitor<T> visitor = new OdataQueryExpressionVisitor<T>(mClient);
             var newExpressionTree = visitor.Visit(data.Expression);
 
-            var lambda = System.Linq.Expressions.Expression.Lambda(newExpressionTree);
+            var lambda = Expression.Lambda(newExpressionTree);
             var compiled = lambda.Compile();
 
-            return (IBoundClient<T>)compiled.DynamicInvoke();
+            return Task.FromResult((IBoundClient<T>)compiled.DynamicInvoke());
         }
 
-        public async Task Add(Guid pId, T pNewValue)
+        public virtual async Task Add(Guid pId, T pNewValue)
         {
             try
             {
@@ -85,7 +89,7 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        public async Task Remove(Guid pId, T pValue)
+        public virtual async Task Remove(Guid pId, T pValue)
         {
             try
             {
@@ -98,7 +102,7 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        public async Task Update(Guid pId, T pValue)
+        public virtual async Task Update(Guid pId, T pValue)
         {
             try
             {
