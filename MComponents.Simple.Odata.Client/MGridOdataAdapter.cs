@@ -9,6 +9,128 @@ using System.Threading.Tasks;
 
 namespace MComponents.Simple.Odata.Client
 {
+    public class MGridOdataAdapter : IMGridDataAdapter<IDictionary<string, object>>
+    {
+        protected ODataClient mClient { get; }
+
+        public string CollectionName { get; protected set; }
+
+        public MGridOdataAdapter(ODataClient pClient, string pCollection)
+        {
+            mClient = pClient;
+            CollectionName = pCollection;
+        }
+
+        public virtual async Task<IEnumerable<IDictionary<string, object>>> GetData(IQueryable<IDictionary<string, object>> pQueryable)
+        {
+            try
+            {
+                var client = await GetFilteredClient(pQueryable);
+                return await client.FindEntriesAsync();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+        public virtual async Task<long> GetDataCount(IQueryable<IDictionary<string, object>> pQueryable)
+        {
+            try
+            {
+                if (pQueryable.Expression.ContainsWhereIdExpression())
+                {
+                    return (await GetData(pQueryable)).Count();
+                }
+
+                var client = await GetFilteredClient(pQueryable);
+
+                return await client.Count().FindScalarAsync<long>();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+        public virtual async Task<long> GetTotalDataCount()
+        {
+            try
+            {
+                return await mClient.For(CollectionName).Count().FindScalarAsync<long>();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+        protected virtual Task<IBoundClient<IDictionary<string, object>>> GetFilteredClient(IQueryable<IDictionary<string, object>> data)
+        {
+      //      data = new List<IDictionary<string, object>>().AsQueryable();
+
+            OdataQueryExpressionVisitor<IDictionary<string, object>> visitor = new OdataQueryExpressionVisitor(mClient, CollectionName);
+            var newExpressionTree = visitor.Visit(data.Expression);
+            Console.WriteLine(newExpressionTree);
+
+            var lambda = Expression.Lambda(newExpressionTree);
+            var compiled = lambda.Compile();
+
+            return Task.FromResult((IBoundClient<IDictionary<string, object>>)compiled.DynamicInvoke());
+        }
+
+        public virtual async Task Add(Guid pId, IDictionary<string, object> pNewValue)
+        {
+            try
+            {
+                await mClient.For(CollectionName).Set(pNewValue).InsertEntryAsync(false).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+        public virtual async Task Remove(Guid pId, IDictionary<string, object> pValue)
+        {
+            try
+            {
+                await mClient.For<IDictionary<string, object>>().Key(pId).Set(pValue).DeleteEntryAsync();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+        public virtual async Task Update(Guid pId, IDictionary<string, object> pValue)
+        {
+            try
+            {
+                Console.WriteLine("Model");
+                foreach (var entry in pValue)
+                {
+                    Console.WriteLine(entry.Key + "  " + entry.Value);
+                }
+
+                await mClient.For(CollectionName).Key(pId).Set(pValue).UpdateEntryAsync(false);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+    }
+
+
+
+
     public class MGridOdataAdapter<T> : IMGridDataAdapter<T> where T : class
     {
         protected ODataClient mClient { get; }

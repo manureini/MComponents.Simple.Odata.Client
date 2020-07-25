@@ -11,6 +11,76 @@ using System.Web;
 
 namespace MComponents.Simple.Odata.Client
 {
+    public class MGridOdataAdapterOneToMany : MGridOdataAdapter
+    {
+
+        public Regex mFilterRegex = new Regex("filter=(.*?)&");
+
+
+        protected Guid mOneId;
+        protected string mPropertyToMany;
+        protected object mOneModel;
+
+        public MGridOdataAdapterOneToMany(ODataClient pClient, string pCollection, object pOneModel, Guid pOneId, string pPropertyToMany) : base(pClient, pCollection)
+        {
+            mOneId = pOneId;
+            mPropertyToMany = pPropertyToMany;
+            mOneModel = pOneModel;
+        }
+
+
+        protected override async Task<IBoundClient<IDictionary<string, object>>> GetFilteredClient(IQueryable<IDictionary<string, object>> data)
+        {
+            var client = await base.GetFilteredClient(data);
+
+            //https://github.com/simple-odata-client/Simple.OData.Client/issues/239
+
+            var cmd = HttpUtility.UrlDecode(await client.GetCommandTextAsync());
+
+            var filter = mFilterRegex.Match(cmd).Groups[1].Value;
+
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                filter += " and ";
+            }
+
+            filter += mPropertyToMany + "/Id eq " + mOneId;
+
+            RemoveFilterExpression(client);
+
+            client = client.Filter(filter);
+
+            return client;
+        }
+
+        private static void RemoveFilterExpression(IBoundClient<IDictionary<string, object>> client)
+        {
+            var cmdprop = client.GetType().GetProperty("Command", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            object fluentcmd = cmdprop.GetValue(client);
+            var detailsProp = fluentcmd.GetType().GetProperty("Details", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var cmdDetails = detailsProp.GetValue(fluentcmd);
+            var filterExpressionProp = cmdDetails.GetType().GetProperty("FilterExpression", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+            filterExpressionProp.SetValue(cmdDetails, null);
+        }
+
+        public override async Task<long> GetTotalDataCount()
+        {
+            return await mClient.For(CollectionName).Filter(mPropertyToMany + "/Id eq " + mOneId).Count().FindScalarAsync<long>();
+        }
+
+        public override async Task Add(Guid pId, IDictionary<string, object> pNewValue)
+        {
+            var batch = new ODataBatch(mClient, true);
+
+            batch += c => c.For(CollectionName).Set(pNewValue).InsertEntryAsync(false);
+            batch += c => c.For(CollectionName).Key(pId).LinkEntryAsync(mOneModel, mPropertyToMany);
+
+            await batch.ExecuteAsync();
+        }
+    }
+
+
+
     public class MGridOdataAdapterOneToMany<T> : MGridOdataAdapter<T> where T : class
     {
 

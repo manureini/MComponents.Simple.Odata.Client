@@ -7,6 +7,37 @@ using System.Linq.Expressions;
 
 namespace PIS.Services
 {
+    public class OdataQueryExpressionVisitor : OdataQueryExpressionVisitor<IDictionary<string, object>>
+    {
+        protected string mCollectionName;
+
+        public OdataQueryExpressionVisitor(ODataClient pClient, string pCollectionName) : base(pClient)
+        {
+            mCollectionName = pCollectionName;
+        }
+
+        protected override Expression VisitConstant(ConstantExpression node)
+        {
+            if (node == null)
+                return node;
+
+            if (node.Type.IsGenericType && node.Type.GetGenericTypeDefinition() == typeof(EnumerableQuery<>))
+            {
+                var client = Expression.Constant(mClient);
+
+                var mi = mClient.GetType().GetMethods().First(m => m.Name == "For");
+
+                return Expression.Call(client, mi, Expression.Constant(mCollectionName));
+            }
+
+            if (node.Value is Expression expr)
+                return Visit(expr);
+
+            return base.VisitConstant(node);
+        }
+    }
+
+
     public class OdataQueryExpressionVisitor<T> : ExpressionVisitor where T : class
     {
         protected ODataClient mClient;
