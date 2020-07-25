@@ -1,4 +1,5 @@
 ﻿using MComponents.MGrid;
+using Microsoft.OData.Edm;
 using PIS.Services;
 using Simple.OData.Client;
 using System;
@@ -15,10 +16,16 @@ namespace MComponents.Simple.Odata.Client
 
         public string CollectionName { get; protected set; }
 
-        public MGridOdataAdapter(ODataClient pClient, string pCollection)
+        public string Namespace { get; protected set; }
+
+        public MGridOdataAdapter(ODataClient pClient, string pNamespace, string pCollection)
         {
             mClient = pClient;
             CollectionName = pCollection;
+            Namespace = pNamespace;
+
+            if (!Namespace.EndsWith("."))
+                Namespace += ".";
         }
 
         public virtual async Task<IEnumerable<IDictionary<string, object>>> GetData(IQueryable<IDictionary<string, object>> pQueryable)
@@ -70,7 +77,7 @@ namespace MComponents.Simple.Odata.Client
 
         protected virtual Task<IBoundClient<IDictionary<string, object>>> GetFilteredClient(IQueryable<IDictionary<string, object>> data)
         {
-      //      data = new List<IDictionary<string, object>>().AsQueryable();
+            //      data = new List<IDictionary<string, object>>().AsQueryable();
 
             OdataQueryExpressionVisitor<IDictionary<string, object>> visitor = new OdataQueryExpressionVisitor(mClient, CollectionName);
             var newExpressionTree = visitor.Visit(data.Expression);
@@ -126,6 +133,27 @@ namespace MComponents.Simple.Odata.Client
                 throw;
             }
         }
+
+
+        public async Task<IEnumerable<MGridColumn>> GetMGridColumnsFromOdataModel()
+        {
+            var model = await mClient.GetMetadataAsync<IEdmModel>();
+            var type = model.FindDeclaredType(Namespace + CollectionName) as IEdmEntityType;
+
+            if (type == null)
+                return Enumerable.Empty<MGridColumn>();
+
+            List<MGridColumn> ret = new List<MGridColumn>();
+
+            foreach (var property in type.Properties())
+            {
+                var gridcolumn = OdataHelper.ConvertOdataPropertyToGridColumns(property);
+                ret.Add(gridcolumn);
+            }
+
+            return ret;
+        }
+
     }
 
 
@@ -236,5 +264,6 @@ namespace MComponents.Simple.Odata.Client
                 throw;
             }
         }
+
     }
 }

@@ -21,7 +21,7 @@ namespace MComponents.Simple.Odata.Client
         protected string mPropertyToMany;
         protected object mOneModel;
 
-        public MGridOdataAdapterOneToMany(ODataClient pClient, string pCollection, object pOneModel, Guid pOneId, string pPropertyToMany) : base(pClient, pCollection)
+        public MGridOdataAdapterOneToMany(ODataClient pClient, string pNamespace, string pCollection, object pOneModel, Guid pOneId, string pPropertyToMany) : base(pClient, pNamespace, pCollection)
         {
             mOneId = pOneId;
             mPropertyToMany = pPropertyToMany;
