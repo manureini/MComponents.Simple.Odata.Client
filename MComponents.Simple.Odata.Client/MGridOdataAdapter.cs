@@ -106,7 +106,7 @@ namespace MComponents.Simple.Odata.Client
         {
             try
             {
-                await mClient.For<IDictionary<string, object>>().Key(pId).Set(pValue).DeleteEntryAsync();
+                await mClient.For(CollectionName).Key(pId).Set(pValue).DeleteEntryAsync();
             }
             catch (Exception e)
             {
