@@ -2,9 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
@@ -88,13 +85,13 @@ namespace MComponents.Simple.Odata.Client
 
 
         protected Guid mOneId;
-        protected string mPropertyToMany;
+        protected string mPropertyToModel;
         protected object mOneModel;
 
-        public MGridOdataAdapterOneToMany(ODataClient pClient, object pOneModel, Guid pOneId, string pPropertyToMany) : base(pClient)
+        public MGridOdataAdapterOneToMany(ODataClient pClient, object pOneModel, Guid pOneId, string pPropertyToModel) : base(pClient)
         {
             mOneId = pOneId;
-            mPropertyToMany = pPropertyToMany;
+            mPropertyToModel = pPropertyToModel;
             mOneModel = pOneModel;
         }
 
@@ -132,7 +129,7 @@ namespace MComponents.Simple.Odata.Client
                 filter += " and ";
             }
 
-            filter += mPropertyToMany + "/Id eq " + mOneId;
+            filter += mPropertyToModel + "/Id eq " + mOneId;
 
             RemoveFilterExpression(client);
 
@@ -153,17 +150,24 @@ namespace MComponents.Simple.Odata.Client
 
         public override async Task<long> GetTotalDataCount()
         {
-            return await mClient.For<T>().Filter(mPropertyToMany + "/Id eq " + mOneId).Count().FindScalarAsync<long>();
+            return await mClient.For<T>().Filter(mPropertyToModel + "/Id eq " + mOneId).Count().FindScalarAsync<long>();
         }
 
         public override async Task Add(Guid pId, T pNewValue)
         {
-            var batch = new ODataBatch(mClient, true);
+            try
+            {
+                var batch = new ODataBatch(mClient, true);
 
-            batch += c => c.For<T>().Set(pNewValue).InsertEntryAsync(false);
-            batch += c => c.For<T>().Key(pId).LinkEntryAsync(mOneModel, mPropertyToMany);
+                batch += c => c.For<T>().Set(pNewValue).InsertEntryAsync(false);
+                batch += c => c.For<T>().Key(pId).LinkEntryAsync(mOneModel, mPropertyToModel);
 
-            await batch.ExecuteAsync();
+                await batch.ExecuteAsync();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
         }
     }
 }

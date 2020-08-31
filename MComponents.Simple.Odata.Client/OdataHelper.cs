@@ -1,8 +1,6 @@
 ﻿using MComponents.MGrid;
 using Microsoft.OData.Edm;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace MComponents.Simple.Odata.Client
 {

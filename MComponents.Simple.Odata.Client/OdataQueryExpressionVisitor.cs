@@ -9,11 +9,8 @@ namespace PIS.Services
 {
     public class OdataQueryExpressionVisitor : OdataQueryExpressionVisitor<IDictionary<string, object>>
     {
-        protected string mCollectionName;
-
-        public OdataQueryExpressionVisitor(ODataClient pClient, string pCollectionName) : base(pClient)
+        public OdataQueryExpressionVisitor(ODataClient pClient, string pCollection) : base(pClient, pCollection)
         {
-            mCollectionName = pCollectionName;
         }
 
         protected override Expression VisitConstant(ConstantExpression node)
@@ -27,7 +24,7 @@ namespace PIS.Services
 
                 var mi = mClient.GetType().GetMethods().First(m => m.Name == "For");
 
-                return Expression.Call(client, mi, Expression.Constant(mCollectionName));
+                return Expression.Call(client, mi, Expression.Constant(mCollection));
             }
 
             if (node.Value is Expression expr)
@@ -37,14 +34,15 @@ namespace PIS.Services
         }
     }
 
-
     public class OdataQueryExpressionVisitor<T> : ExpressionVisitor where T : class
     {
         protected ODataClient mClient;
+        protected string mCollection;
 
-        public OdataQueryExpressionVisitor(ODataClient pClient)
+        public OdataQueryExpressionVisitor(ODataClient pClient, string pCollection)
         {
             mClient = pClient;
+            mCollection = pCollection;
         }
 
         public override Expression Visit(Expression node)
@@ -144,7 +142,7 @@ namespace PIS.Services
 
                 var mi = mClient.GetType().GetMethods().Last(m => m.Name == "For").MakeGenericMethod(typeof(T));
 
-                return Expression.Call(client, mi, Expression.Constant(null, typeof(string)));
+                return Expression.Call(client, mi, Expression.Constant(mCollection, typeof(string)));
             }
 
             if (node.Value is Expression expr)
