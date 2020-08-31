@@ -5,12 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MComponents" Version="1.1.9" />
     <PackageReference Include="Simple.OData.V4.Client" Version="5.12.0.3" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\MComponents\MComponents.Shared\MComponents.Shared.csproj" />
-    <ProjectReference Include="..\..\MComponents\MComponents\MComponents.csproj" />
   </ItemGroup>
 
 </Project>
