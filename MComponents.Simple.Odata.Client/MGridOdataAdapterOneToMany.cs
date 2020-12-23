@@ -141,6 +141,10 @@ namespace MComponents.Simple.Odata.Client
         private static void RemoveFilterExpression(IBoundClient<T> client)
         {
             var cmdprop = client.GetType().GetProperty("Command", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (cmdprop == null)
+                return;
+
             object fluentcmd = cmdprop.GetValue(client);
             var detailsProp = fluentcmd.GetType().GetProperty("Details", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             var cmdDetails = detailsProp.GetValue(fluentcmd);
