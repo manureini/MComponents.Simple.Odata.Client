@@ -18,7 +18,7 @@ namespace MComponents.Simple.Odata.Client
         protected string mPropertyToMany;
         protected object mOneModel;
 
-        public MGridOdataAdapterOneToMany(ODataClient pClient, string pNamespace, string pCollection, object pOneModel, Guid pOneId, string pPropertyToMany) : base(pClient, pNamespace, pCollection)
+        public MGridOdataAdapterOneToMany(ODataClient pClient, string pNamespace, string pCollection, object pOneModel, Guid pOneId, string pPropertyToMany, string[] pExpands = null) : base(pClient, pNamespace, pCollection, pExpands)
         {
             mOneId = pOneId;
             mPropertyToMany = pPropertyToMany;
@@ -65,12 +65,14 @@ namespace MComponents.Simple.Odata.Client
             return await mClient.For(CollectionName).Filter(mPropertyToMany + "/Id eq " + mOneId).Count().FindScalarAsync<long>();
         }
 
-        public override async Task Add(Guid pId, IDictionary<string, object> pNewValue)
+        public override async Task Add(IDictionary<string, object> pNewValue)
         {
+            var id = (Guid)pNewValue.GetType().GetProperty("Id").GetValue(pNewValue);
+
             var batch = new ODataBatch(mClient, true);
 
             batch += c => c.For(CollectionName).Set(pNewValue).InsertEntryAsync(false);
-            batch += c => c.For(CollectionName).Key(pId).LinkEntryAsync(mOneModel, mPropertyToMany);
+            batch += c => c.For(CollectionName).Key(id).LinkEntryAsync(mOneModel, mPropertyToMany);
 
             await batch.ExecuteAsync();
         }
@@ -88,7 +90,7 @@ namespace MComponents.Simple.Odata.Client
         protected string mPropertyToModel;
         protected object mOneModel;
 
-        public MGridOdataAdapterOneToMany(ODataClient pClient, object pOneModel, Guid pOneId, string pPropertyToModel) : base(pClient)
+        public MGridOdataAdapterOneToMany(ODataClient pClient, object pOneModel, Guid pOneId, string pPropertyToModel, string pCollection = null, string[] pExpands = null) : base(pClient, pCollection, pExpands)
         {
             mOneId = pOneId;
             mPropertyToModel = pPropertyToModel;
@@ -157,20 +159,23 @@ namespace MComponents.Simple.Odata.Client
             return await mClient.For<T>().Filter(mPropertyToModel + "/Id eq " + mOneId).Count().FindScalarAsync<long>();
         }
 
-        public override async Task Add(Guid pId, T pNewValue)
+        public override async Task Add(T pNewValue)
         {
             try
             {
+                var id = (Guid)pNewValue.GetType().GetProperty("Id").GetValue(pNewValue);
+
                 var batch = new ODataBatch(mClient, true);
 
                 batch += c => c.For<T>().Set(pNewValue).InsertEntryAsync(false);
-                batch += c => c.For<T>().Key(pId).LinkEntryAsync(mOneModel, mPropertyToModel);
+                batch += c => c.For<T>().Key(id).LinkEntryAsync(mOneModel, mPropertyToModel);
 
                 await batch.ExecuteAsync();
             }
             catch (Exception e)
             {
                 Console.WriteLine(e);
+                throw;
             }
         }
     }

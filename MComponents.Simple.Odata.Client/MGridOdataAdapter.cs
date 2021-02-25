@@ -42,7 +42,7 @@ namespace MComponents.Simple.Odata.Client
                     client = client.Expand(Expands);
                 }
 
-                var result = (await client.FindEntriesAsync()).ToArray();
+                // var result = (await client.FindEntriesAsync()).ToArray();
                 return await client.FindEntriesAsync();
             }
             catch (Exception e)
@@ -97,7 +97,7 @@ namespace MComponents.Simple.Odata.Client
             return Task.FromResult((IBoundClient<IDictionary<string, object>>)compiled.DynamicInvoke());
         }
 
-        public virtual async Task Add(Guid pId, IDictionary<string, object> pNewValue)
+        public virtual async Task Add(IDictionary<string, object> pNewValue)
         {
             try
             {
@@ -110,11 +110,12 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        public virtual async Task Remove(Guid pId, IDictionary<string, object> pValue)
+        public virtual async Task Remove(IDictionary<string, object> pValue)
         {
             try
             {
-                await mClient.For(CollectionName).Key(pId).Set(pValue).DeleteEntryAsync();
+                var id = (Guid)pValue.GetType().GetProperty("Id").GetValue(pValue);
+                await mClient.For(CollectionName).Key(id).Set(pValue).DeleteEntryAsync();
             }
             catch (Exception e)
             {
@@ -123,11 +124,12 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        public virtual async Task Update(Guid pId, IDictionary<string, object> pValue)
+        public virtual async Task Update(IDictionary<string, object> pValue)
         {
             try
             {
-                await mClient.For(CollectionName).Key(pId).Set(pValue).UpdateEntryAsync(false);
+                var id = (Guid)pValue.GetType().GetProperty("Id").GetValue(pValue);
+                await mClient.For(CollectionName).Key(id).Set(pValue).UpdateEntryAsync(false);
             }
             catch (Exception e)
             {
@@ -140,7 +142,7 @@ namespace MComponents.Simple.Odata.Client
         public async Task<IEnumerable<MGridColumn>> GetMGridColumnsFromOdataModel()
         {
             var model = await mClient.GetMetadataAsync<IEdmModel>();
-            var type = model.FindDeclaredType(Namespace + CollectionName) as IEdmEntityType;
+            var type = model.FindDeclaredType(CollectionName) as IEdmEntityType;
 
             if (type == null)
                 return Enumerable.Empty<MGridColumn>();
@@ -155,10 +157,7 @@ namespace MComponents.Simple.Odata.Client
 
             return ret;
         }
-
     }
-
-
 
 
     public class MGridOdataAdapter<T> : IMGridDataAdapter<T> where T : class
@@ -167,10 +166,13 @@ namespace MComponents.Simple.Odata.Client
 
         protected string mCollection;
 
-        public MGridOdataAdapter(ODataClient pClient, string pCollection = null)
+        public string[] Expands { get; protected set; }
+
+        public MGridOdataAdapter(ODataClient pClient, string pCollection = null, string[] pExpands = null)
         {
             mClient = pClient;
             mCollection = pCollection;
+            Expands = pExpands;
         }
 
         public virtual async Task<IEnumerable<T>> GetData(IQueryable<T> pQueryable)
@@ -178,6 +180,12 @@ namespace MComponents.Simple.Odata.Client
             try
             {
                 var client = await GetFilteredClient(pQueryable);
+
+                if (Expands != null)
+                {
+                    client = client.Expand(Expands);
+                }
+
                 return await client.FindEntriesAsync();
             }
             catch (Exception e)
@@ -231,7 +239,7 @@ namespace MComponents.Simple.Odata.Client
             return Task.FromResult((IBoundClient<T>)compiled.DynamicInvoke());
         }
 
-        public virtual async Task Add(Guid pId, T pNewValue)
+        public virtual async Task Add(T pNewValue)
         {
             try
             {
@@ -244,11 +252,12 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        public virtual async Task Remove(Guid pId, T pValue)
+        public virtual async Task Remove(T pValue)
         {
             try
             {
-                await mClient.For<T>(mCollection).Key(pId).Set(pValue).DeleteEntryAsync();
+                var id = (Guid)pValue.GetType().GetProperty("Id").GetValue(pValue);
+                await mClient.For<T>(mCollection).Key(id).Set(pValue).DeleteEntryAsync();
             }
             catch (Exception e)
             {
@@ -257,11 +266,12 @@ namespace MComponents.Simple.Odata.Client
             }
         }
 
-        public virtual async Task Update(Guid pId, T pValue)
+        public virtual async Task Update(T pValue)
         {
             try
             {
-                await mClient.For<T>(mCollection).Key(pId).Set(pValue).UpdateEntryAsync(false);
+                var id = (Guid)pValue.GetType().GetProperty("Id").GetValue(pValue);
+                await mClient.For<T>(mCollection).Key(id).Set(pValue).UpdateEntryAsync(false);
             }
             catch (Exception e)
             {
