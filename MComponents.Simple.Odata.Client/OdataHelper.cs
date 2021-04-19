@@ -1,20 +1,59 @@
 ﻿using MComponents.MGrid;
 using Microsoft.OData.Edm;
+using Simple.OData.Client;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MComponents.Simple.Odata.Client
 {
-    internal static class OdataHelper
+    public static class OdataHelper
     {
-        public static MGridColumn ConvertOdataPropertyToGridColumns(IEdmProperty pProperty)
+        public static void ConvertOdataPropertyToGridColumns(IEdmEntityType pType, ref List<MGridColumn> pColumns, int pMaxDepth, string pPath = "", int pDepth = 0)
         {
-            return new MGridColumn()
+            if (pDepth > pMaxDepth)
+                return;
+
+            foreach (var property in pType.Properties())
             {
-                Property = pProperty.Name,
-                PropertyType = GetType(pProperty.Type)
-            };
+                if (property is IEdmNavigationProperty navProp)
+                {
+                    var pi = navProp.GetType().GetProperty("TargetEntityType", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+                    var targetType = pi.GetValue(navProp) as IEdmEntityType;
+
+                    if (targetType != null)
+                        ConvertOdataPropertyToGridColumns(targetType, ref pColumns, pMaxDepth, pPath + navProp.Name + ".", pDepth + 1);
+                    continue;
+                }
+
+                pColumns.Add(new MGridColumn()
+                {
+                    Property = pPath + property.Name,
+                    PropertyType = GetType(property.Type)
+                });
+            }
         }
 
+        public static async Task<string[]> GetNagivationPropertyNames(ODataClient pClient, string pTypeName)
+        {
+            var model = await pClient.GetMetadataAsync<IEdmModel>();
+
+            var edmType = model.FindDeclaredType(pTypeName) as IEdmEntityType;
+
+            List<string> ret = new List<string>();
+
+            foreach (var property in edmType.Properties())
+            {
+                if (property is IEdmNavigationProperty navProp)
+                {
+                    ret.Add(property.Name);
+                }
+            }
+
+            return ret.ToArray();
+        }
 
         public static Type GetType(IEdmTypeReference pType)
         {

@@ -114,7 +114,7 @@ namespace MComponents.Simple.Odata.Client
         {
             try
             {
-                var id = (Guid)pValue.GetType().GetProperty("Id").GetValue(pValue);
+                var id = (Guid)pValue["Id"];
                 await mClient.For(CollectionName).Key(id).Set(pValue).DeleteEntryAsync();
             }
             catch (Exception e)
@@ -128,7 +128,7 @@ namespace MComponents.Simple.Odata.Client
         {
             try
             {
-                var id = (Guid)pValue.GetType().GetProperty("Id").GetValue(pValue);
+                var id = (Guid)pValue["Id"];
                 await mClient.For(CollectionName).Key(id).Set(pValue).UpdateEntryAsync(false);
             }
             catch (Exception e)
@@ -148,12 +148,7 @@ namespace MComponents.Simple.Odata.Client
                 return Enumerable.Empty<MGridColumn>();
 
             List<MGridColumn> ret = new List<MGridColumn>();
-
-            foreach (var property in type.Properties())
-            {
-                var gridcolumn = OdataHelper.ConvertOdataPropertyToGridColumns(property);
-                ret.Add(gridcolumn);
-            }
+            OdataHelper.ConvertOdataPropertyToGridColumns(type, ref ret, 1);
 
             return ret;
         }
