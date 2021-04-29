@@ -38,11 +38,14 @@ namespace MComponents.Simple.Odata.Client
 
         public static async Task<string[]> GetNagivationPropertyNames(ODataClient pClient, string pTypeName)
         {
+            if (pTypeName == null)
+                return null;
+
+            List<string> ret = new List<string>();
+
             var model = await pClient.GetMetadataAsync<IEdmModel>();
 
             var edmType = model.FindDeclaredType(pTypeName) as IEdmEntityType;
-
-            List<string> ret = new List<string>();
 
             foreach (var property in edmType.Properties())
             {
