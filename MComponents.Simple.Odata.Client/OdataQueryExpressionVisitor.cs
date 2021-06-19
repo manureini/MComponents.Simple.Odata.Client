@@ -107,9 +107,11 @@ namespace PIS.Services
                 {
                     dynamic expr = ue.Operand;
 
+                    dynamic castExpr = Expression.Convert(expr.Body, typeof(object));
+
                     var convertedExpr = Expression.Lambda<Func<T, object>>
                            (
-                               expr.Body, expr.Parameters[0]
+                                 castExpr, expr.Parameters[0]
                            );
 
                     var mi = typeof(IFluentClient<T, IBoundClient<T>>).GetMethods()
