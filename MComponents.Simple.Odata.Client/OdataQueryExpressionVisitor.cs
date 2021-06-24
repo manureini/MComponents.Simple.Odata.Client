@@ -95,6 +95,11 @@ namespace PIS.Services
                     var mi = typeof(IFluentClient<T, IBoundClient<T>>).GetMethods()
                         .First(m => m.Name == nameof(IBoundClient<T>.Filter) && m.GetParameters()[0].ParameterType == typeof(Expression<Func<T, bool>>));
 
+                    if (expr.Body is ConditionalExpression conditionalExpression)
+                    {
+                        expr = (Expression<Func<T, bool>>)Expression.Lambda(conditionalExpression.IfFalse, expr.Parameters);
+                    }
+
                     return Expression.Call(Visit(node.Arguments[0]), mi, Visit(Expression.Constant(expr)));
                 }
             }
