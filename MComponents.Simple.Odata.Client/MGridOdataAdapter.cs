@@ -157,17 +157,20 @@ namespace MComponents.Simple.Odata.Client
 
     public class MGridOdataAdapter<T> : IMGridDataAdapter<T> where T : class
     {
-        protected ODataClient mClient { get; }
+        protected ODataClient mClient;
 
         protected string mCollection;
 
-        public string[] Expands { get; protected set; }
+        protected string[] mExpands;
 
-        public MGridOdataAdapter(ODataClient pClient, string pCollection = null, string[] pExpands = null)
+        protected Expression<Func<T, bool>> mFilter;
+
+        public MGridOdataAdapter(ODataClient pClient, string pCollection = null, string[] pExpands = null, Expression<Func<T, bool>> pFilter = null)
         {
             mClient = pClient;
             mCollection = pCollection;
-            Expands = pExpands;
+            mExpands = pExpands;
+            mFilter = pFilter;
         }
 
         public virtual async Task<IEnumerable<T>> GetData(IQueryable<T> pQueryable)
@@ -176,9 +179,9 @@ namespace MComponents.Simple.Odata.Client
             {
                 var client = await GetFilteredClient(pQueryable);
 
-                if (Expands != null)
+                if (mExpands != null)
                 {
-                    client = client.Expand(Expands);
+                    client = client.Expand(mExpands);
                 }
 
                 return await client.FindEntriesAsync();
@@ -214,7 +217,14 @@ namespace MComponents.Simple.Odata.Client
         {
             try
             {
-                return await mClient.For<T>(mCollection).Count().FindScalarAsync<long>();
+                var client = mClient.For<T>(mCollection);
+
+                if (mFilter != null)
+                {
+                    client = client.Filter(mFilter);
+                }
+
+                return await client.Count().FindScalarAsync<long>();
             }
             catch (Exception e)
             {
@@ -225,7 +235,12 @@ namespace MComponents.Simple.Odata.Client
 
         protected virtual Task<IBoundClient<T>> GetFilteredClient(IQueryable<T> data)
         {
-            OdataQueryExpressionVisitor<T> visitor = new OdataQueryExpressionVisitor<T>(mClient, mCollection);
+            if (mFilter != null)
+            {
+                data = data.Where(mFilter).AsQueryable();
+            }
+
+            var visitor = new OdataQueryExpressionVisitor<T>(mClient, mCollection);
             var newExpressionTree = visitor.Visit(data.Expression);
 
             var lambda = Expression.Lambda(newExpressionTree);
