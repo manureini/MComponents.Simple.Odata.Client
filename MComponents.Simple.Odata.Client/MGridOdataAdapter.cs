@@ -97,11 +97,12 @@ namespace MComponents.Simple.Odata.Client
             return Task.FromResult((IBoundClient<IDictionary<string, object>>)compiled.DynamicInvoke());
         }
 
-        public virtual async Task Add(IDictionary<string, object> pNewValue)
+        public virtual async Task<IDictionary<string, object>> Add(IDictionary<string, object> pNewValue)
         {
             try
             {
                 await mClient.For(CollectionName).Set(pNewValue).InsertEntryAsync(false).ConfigureAwait(false);
+                return pNewValue;
             }
             catch (Exception e)
             {
@@ -249,11 +250,12 @@ namespace MComponents.Simple.Odata.Client
             return Task.FromResult((IBoundClient<T>)compiled.DynamicInvoke());
         }
 
-        public virtual async Task Add(T pNewValue)
+        public virtual async Task<T> Add(T pNewValue)
         {
             try
             {
                 await mClient.For<T>(mCollection).Set(pNewValue).InsertEntryAsync(false).ConfigureAwait(false);
+                return pNewValue;
             }
             catch (Exception e)
             {

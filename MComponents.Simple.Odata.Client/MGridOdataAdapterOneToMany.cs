@@ -65,7 +65,7 @@ namespace MComponents.Simple.Odata.Client
             return await mClient.For(CollectionName).Filter(mPropertyToMany + "/Id eq " + mOneId).Count().FindScalarAsync<long>();
         }
 
-        public override async Task Add(IDictionary<string, object> pNewValue)
+        public override async Task<IDictionary<string, object>> Add(IDictionary<string, object> pNewValue)
         {
             var id = (Guid)pNewValue.GetType().GetProperty("Id").GetValue(pNewValue);
 
@@ -75,6 +75,8 @@ namespace MComponents.Simple.Odata.Client
             batch += c => c.For(CollectionName).Key(id).LinkEntryAsync(mOneModel, mPropertyToMany);
 
             await batch.ExecuteAsync();
+
+            return pNewValue;
         }
     }
 
@@ -159,7 +161,7 @@ namespace MComponents.Simple.Odata.Client
             return await mClient.For<T>().Filter(mPropertyToModel + "/Id eq " + mOneId).Count().FindScalarAsync<long>();
         }
 
-        public override async Task Add(T pNewValue)
+        public override async Task<T> Add(T pNewValue)
         {
             try
             {
@@ -171,6 +173,7 @@ namespace MComponents.Simple.Odata.Client
                 batch += c => c.For<T>().Key(id).LinkEntryAsync(mOneModel, mPropertyToModel);
 
                 await batch.ExecuteAsync();
+                return pNewValue;
             }
             catch (Exception e)
             {
