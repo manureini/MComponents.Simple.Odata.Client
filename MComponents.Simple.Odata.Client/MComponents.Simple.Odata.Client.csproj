@@ -9,4 +9,12 @@
     <ProjectReference Include="..\..\Simple.OData.Client\src\Simple.OData.Client.V4.Adapter\Simple.OData.Client.V4.Adapter.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Attributes\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MShared" Version="1.0.0" />
+  </ItemGroup>
+
 </Project>
