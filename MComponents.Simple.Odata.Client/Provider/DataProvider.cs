@@ -19,22 +19,14 @@ namespace MComponents.Simple.Odata.Client.Provider
         protected OdataService mOdataService;
 
         protected SemaphoreSlim mSemaphore = new(1, 1);
+        protected INetworkStateService mNetworkStateService;
 
-        public bool IsOnline { get; set; }
+        public bool IsOnline => mNetworkStateService.IsOnline;
 
-        public DataProvider(OdataService pOdataService)
+        public DataProvider(OdataService pOdataService, INetworkStateService pNetworkStateService)
         {
             mOdataService = pOdataService;
-            /*
-            IsOnline = pNetworkStateService.IsOnline;
-            pNetworkStateService.OnStatusChanged += NetworkStateService_OnStatusChanged;
-            */
-
-        }
-
-        private void NetworkStateService_OnStatusChanged(object sender, bool isOnline)
-        {
-            IsOnline = isOnline;
+            mNetworkStateService = pNetworkStateService;
         }
 
         public async Task<T> Get<T>(Guid pKey, string pCollection = null, params string[] pExpands) where T : class
