@@ -17,12 +17,9 @@ namespace MComponents.Simple.Odata.Client.Services
 
         public ODataClient Client => ClientProvider.Client;
 
-        public DataProvider DataProvider { get; protected set; }
-
-        public OdataService(IOdataClientProvider pOdataManager, DataProvider pDataProvider)
+        public OdataService(IOdataClientProvider pOdataManager)
         {
             ClientProvider = pOdataManager;
-            DataProvider = pDataProvider;
         }
 
         public async Task<T> Get<T>(Guid pKey, string pCollection = null, params string[] pExpands) where T : class
@@ -95,7 +92,7 @@ namespace MComponents.Simple.Odata.Client.Services
             return await query.InsertEntryAsync();
         }
 
-        public async Task Create<T>(T pValue, string pCollection = null) where T : class
+        public async Task Create<T>(T pValue, string pCollection = null, Func<IIdentifiable, bool> pNestedPropertyShouldBeSkipped = null) where T : class
         {
             var valueType = pValue.GetType();
 
@@ -109,7 +106,7 @@ namespace MComponents.Simple.Odata.Client.Services
                 {
                     var propValue = (IIdentifiable)prop.GetValue(pValue);
 
-                    if (propValue == null || DataProvider.IsInCache(propValue))  //is already an existing value
+                    if (propValue == null || (pNestedPropertyShouldBeSkipped != null && pNestedPropertyShouldBeSkipped(propValue)))
                         continue;
 
                     ignoreProps.Add(prop.Name);
@@ -133,7 +130,7 @@ namespace MComponents.Simple.Odata.Client.Services
 
                     foreach (IIdentifiable value in enumerable)
                     {
-                        if (value == null || DataProvider.IsInCache(value))  //is already an existing value
+                        if (value == null || (pNestedPropertyShouldBeSkipped != null && pNestedPropertyShouldBeSkipped(value)))
                             continue;
 
                         if (!ignoreProps.Contains(prop.Name))

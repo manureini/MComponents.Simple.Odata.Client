@@ -149,7 +149,7 @@ namespace MComponents.Simple.Odata.Client.Provider
                     id = GetId(value);
                 }
 
-                await mOdataService.Create<T>(value, pCollection);
+                await mOdataService.Create<T>(value, pCollection, v => IsInCache(v));
 
                 var ret = await mOdataService.Get<T>(id, pCollection); // Create will not expand stuff in the current implementation
 
@@ -234,7 +234,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
-        public bool IsInCache<T>(T value)
+        public bool IsInCache(object value)
         {
             var id = GetId(value);
             return mCache.ContainsKey(id);
