@@ -6,6 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -26,28 +27,20 @@ namespace MComponents.Simple.Odata.Client.Services
         {
             var query = Client.For<T>(pCollection).Key(pKey);
 
-            foreach (var property in typeof(T).GetProperties().Where(p => p.GetCustomAttribute(typeof(ExpandAttribute)) != null))
-            {
-                if (pExpands.Contains(property.Name))
-                    continue;
-
-                query = query.Expand(property.Name);
-            }
-            foreach (var expand in pExpands)
-            {
-                query = query.Expand(expand);
-            }
+            query = AddExpands(pExpands, query);
 
             return await query.FindEntryAsync();
         }
 
-        public async Task<IEnumerable<T>> Get<T>(string pCollection = null) where T : class
+        public async Task<IEnumerable<T>> Get<T>(string pCollection = null, Expression<Func<T, bool>> pFilter = null, params string[] pExpands) where T : class
         {
             var query = Client.For<T>(pCollection);
 
-            foreach (var property in typeof(T).GetProperties().Where(p => p.GetCustomAttribute(typeof(ExpandAttribute)) != null))
+            query = AddExpands(pExpands, query);
+
+            if (pFilter != null)
             {
-                query = query.Expand(property.Name);
+                query = query.Filter(pFilter);
             }
 
             return await query.FindEntriesAsync();
@@ -201,6 +194,27 @@ namespace MComponents.Simple.Odata.Client.Services
         public async Task Delete<T>(Guid pKey, string pCollection = null) where T : class
         {
             await Client.For<T>(pCollection).Key(pKey).DeleteEntryAsync();
+        }
+
+        private static IBoundClient<T> AddExpands<T>(string[] pExpands, IBoundClient<T> query) where T : class
+        {
+            foreach (var property in typeof(T).GetProperties().Where(p => p.GetCustomAttribute(typeof(ExpandAttribute)) != null))
+            {
+                if (pExpands != null && pExpands.Contains(property.Name))
+                    continue;
+
+                query = query.Expand(property.Name);
+            }
+
+            if (pExpands != null)
+            {
+                foreach (var expand in pExpands)
+                {
+                    query = query.Expand(expand);
+                }
+            }
+
+            return query;
         }
     }
 }

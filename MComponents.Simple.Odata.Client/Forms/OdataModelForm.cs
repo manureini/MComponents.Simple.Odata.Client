@@ -33,6 +33,8 @@ namespace MComponents.Simple.Odata.Client.Forms
 
         public virtual string Collection => typeof(T).Name;
 
+        public virtual string[] Expands => null;
+
         protected readonly SemaphoreSlim mSemaphore = new(1, 1);
 
         override async protected Task OnInitializedAsync()
@@ -48,7 +50,7 @@ namespace MComponents.Simple.Odata.Client.Forms
 
         public virtual async Task LoadModel()
         {
-            Model = await DataProvider.Get<T>(Id.Value, Collection);
+            Model = await DataProvider.Get<T>(Id.Value, Collection, Expands);
             _ = OnModelLoaded.InvokeAsync(this);
         }
 

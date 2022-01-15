@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -100,7 +101,12 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
-        public async Task<List<T>> Get<T>(string pCollection = null) where T : class
+        public Task<List<T>> Get<T>(Expression<Func<T, bool>> pFilter, params string[] pExpands) where T : class
+        {
+            return Get<T>(null, pFilter, pExpands);
+        }
+
+        public async Task<List<T>> Get<T>(string pCollection = null, Expression<Func<T, bool>> pFilter = null, params string[] pExpands) where T : class
         {
             pCollection ??= typeof(T).Name;
 
@@ -108,16 +114,23 @@ namespace MComponents.Simple.Odata.Client.Provider
             {
                 await mSemaphore.WaitAsync();
 
-                if (mCollectionCache.ContainsKey(pCollection))
+                if (mCollectionCache.ContainsKey(pCollection) && pFilter == null && pExpands == null)
                 {
                     return GetFromCache<T>(pCollection);
                 }
 
-                var odataValues = await mOdataService.Get<T>(pCollection);
+                var odataValues = await mOdataService.Get<T>(pCollection, pFilter, pExpands);
 
                 AddToCacheInternal(odataValues, pCollection);
 
-                return GetFromCache<T>(pCollection);
+                var result = GetFromCache<T>(pCollection);
+
+                if (pFilter != null || pExpands != null)
+                {
+                    mCollectionCache.Remove(pCollection); //todo implement filter and expand cache
+                }
+
+                return result;
             }
             finally
             {
@@ -376,12 +389,15 @@ namespace MComponents.Simple.Odata.Client.Provider
                     return false;
             }
 
-            foreach (var expands in pExpands)
+            if (pExpands != null)
             {
-                var prop = pValue.GetType().GetProperty(expands);
+                foreach (var expands in pExpands)
+                {
+                    var prop = pValue.GetType().GetProperty(expands);
 
-                if (prop.GetValue(pValue) == null)
-                    return false;
+                    if (prop.GetValue(pValue) == null)
+                        return false;
+                }
             }
 
             return true;
