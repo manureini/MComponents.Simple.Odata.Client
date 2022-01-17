@@ -25,20 +25,19 @@ namespace MComponents.Simple.Odata.Client.Forms
 
         override async protected Task OnInitializedAsync()
         {
+            mNavigationPropertyChildToParent = typeof(U).GetProperty(NavigationPropertyChildToParent);
+
+            if (!typeof(T).IsAssignableTo(mNavigationPropertyChildToParent.PropertyType))
+                throw new ArgumentException($"Parent type {typeof(T)} is not assignable to {mNavigationPropertyChildToParent.PropertyType} of {nameof(NavigationPropertyChildToParent)} {NavigationPropertyChildToParent}");
+
+            mNavigationPropertyParentToChild = typeof(T).GetProperty(NavigationPropertyParentToChild);
+
+            if (!typeof(U).IsAssignableTo(mNavigationPropertyParentToChild.PropertyType) && !typeof(ICollection<>).MakeGenericType(typeof(U)).IsAssignableTo(mNavigationPropertyParentToChild.PropertyType))
+                throw new ArgumentException($"Child type {typeof(U)} is not assignable to {mNavigationPropertyParentToChild.PropertyType} of {nameof(NavigationPropertyParentToChild)} {NavigationPropertyParentToChild}");
+
             if (Id == null)
             {
                 Model = new U();
-
-                mNavigationPropertyChildToParent = typeof(U).GetProperty(NavigationPropertyChildToParent);
-
-                if (!typeof(T).IsAssignableTo(mNavigationPropertyChildToParent.PropertyType))
-                    throw new ArgumentException($"Parent type {typeof(T)} is not assignable to {mNavigationPropertyChildToParent.PropertyType} of {nameof(NavigationPropertyChildToParent)} {NavigationPropertyChildToParent}");
-
-                mNavigationPropertyParentToChild = typeof(T).GetProperty(NavigationPropertyParentToChild);
-
-                if (!typeof(U).IsAssignableTo(mNavigationPropertyParentToChild.PropertyType) && !typeof(ICollection<>).MakeGenericType(typeof(U)).IsAssignableTo(mNavigationPropertyParentToChild.PropertyType))
-                    throw new ArgumentException($"Child type {typeof(U)} is not assignable to {mNavigationPropertyParentToChild.PropertyType} of {nameof(NavigationPropertyParentToChild)} {NavigationPropertyParentToChild}");
-
                 mNavigationPropertyChildToParent.SetValue(Model, Parent);
                 return;
             }
@@ -75,7 +74,15 @@ namespace MComponents.Simple.Odata.Client.Forms
                 }
 
                 if (!collection.Contains(Model))
+                {
+                    if (collection is Array)
+                    {
+                        collection = new List<U>(collection);
+                        mNavigationPropertyParentToChild.SetValue(Parent, collection);
+                    }
+
                     collection.Add(Model);
+                }
             }
         }
 
