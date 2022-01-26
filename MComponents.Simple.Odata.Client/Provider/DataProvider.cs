@@ -207,6 +207,9 @@ namespace MComponents.Simple.Odata.Client.Provider
 
         public async Task Remove<T>(T pValue, string pCollection = null) where T : class
         {
+            if (pValue == null)
+                return;
+
             pCollection ??= typeof(T).Name;
 
             try
