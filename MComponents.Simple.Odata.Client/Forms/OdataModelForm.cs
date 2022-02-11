@@ -41,11 +41,17 @@ namespace MComponents.Simple.Odata.Client.Forms
         {
             if (Id == null)
             {
-                Model = new T();
+                await CreateModel();
                 return;
             }
 
             await LoadModel();
+        }
+
+        public virtual Task CreateModel()
+        {
+            Model = new T();
+            return Task.CompletedTask;
         }
 
         public virtual async Task LoadModel()
