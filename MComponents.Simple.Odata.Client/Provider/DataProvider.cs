@@ -242,6 +242,19 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
+        public async Task AddToCache<T>(T pValue)
+        {
+            try
+            {
+                await mSemaphore.WaitAsync();
+                AddToCache(pValue, false);
+            }
+            finally
+            {
+                mSemaphore.Release();
+            }
+        }
+
         public bool IsInCache(object value)
         {
             var id = GetId(value);
