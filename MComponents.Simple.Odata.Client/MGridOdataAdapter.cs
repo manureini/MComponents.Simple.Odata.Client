@@ -89,7 +89,7 @@ namespace MComponents.Simple.Odata.Client
         {
             OdataQueryExpressionVisitor<IDictionary<string, object>> visitor = new OdataQueryExpressionVisitor(mClient, CollectionName);
             var newExpressionTree = visitor.Visit(data.Expression);
-            Console.WriteLine(newExpressionTree);
+            //Console.WriteLine(newExpressionTree);
 
             var lambda = Expression.Lambda(newExpressionTree);
             var compiled = lambda.Compile();

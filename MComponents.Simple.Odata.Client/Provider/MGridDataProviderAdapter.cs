@@ -50,6 +50,8 @@ namespace MComponents.Simple.Odata.Client.Provider
                 {
                     Console.WriteLine(ex);
                 }
+
+                return Enumerable.Empty<T>();
             }
 
             return await mDataProvider.Get<T>(mCollection);
