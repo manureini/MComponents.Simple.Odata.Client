@@ -40,12 +40,12 @@ namespace MComponents.Simple.Odata.Client.Provider
 
             try
             {
+                await mSemaphore.WaitAsync();
+
                 var result = await mTimeoutPolicy.ExecuteAsync(async () =>
                 {
                     try
                     {
-                        await mSemaphore.WaitAsync();
-
                         bool forceCheckNestedProperties = false;
 
                         if (mCache.ContainsKey(pKey))
@@ -129,12 +129,12 @@ namespace MComponents.Simple.Odata.Client.Provider
 
             try
             {
+                await mSemaphore.WaitAsync();
+
                 var result = await mTimeoutPolicy.ExecuteAsync(async () =>
                 {
                     try
                     {
-                        await mSemaphore.WaitAsync();
-
                         if (mCollectionCache.ContainsKey(pCollection) && pFilter == null && pExpands == null)
                         {
                             return GetFromCache<T>(pCollection);
@@ -278,7 +278,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             {
                 await mSemaphore.WaitAsync();
 
-                if(pValue is IEnumerable enumerable)
+                if (pValue is IEnumerable enumerable)
                 {
                     foreach (var item in enumerable)
                     {
@@ -358,7 +358,7 @@ namespace MComponents.Simple.Odata.Client.Provider
                 if (propValue == null)
                     continue;
 
-                if(propValue is DateTime dtValue && dtValue.Kind == DateTimeKind.Unspecified)
+                if (propValue is DateTime dtValue && dtValue.Kind == DateTimeKind.Unspecified)
                 {
                     propValue = DateTime.SpecifyKind(dtValue, DateTimeKind.Utc).ToLocalTime();
                     prop.SetValue(pValue, propValue);
@@ -456,9 +456,9 @@ namespace MComponents.Simple.Odata.Client.Provider
 
             if (pExpands != null)
             {
-                foreach (var expands in pExpands)
+                foreach (var expand in pExpands)
                 {
-                    var prop = pValue.GetType().GetProperty(expands);
+                    var prop = ReflectionHelper.GetIMPropertyInfo(pValue.GetType(), expand, null);
 
                     if (prop.GetValue(pValue) == null)
                         return false;

@@ -210,7 +210,7 @@ namespace MComponents.Simple.Odata.Client.Services
             {
                 foreach (var expand in pExpands)
                 {
-                    query = query.Expand(expand);
+                    query = query.Expand(expand.Replace(".", "/"));
                 }
             }
 
