@@ -1,5 +1,7 @@
 ﻿using MComponents.Simple.Odata.Client.Services;
 using MShared;
+using Polly;
+using Polly.Timeout;
 using Simple.OData.Client;
 using System;
 using System.Collections;
@@ -21,6 +23,7 @@ namespace MComponents.Simple.Odata.Client.Provider
 
         protected SemaphoreSlim mSemaphore = new(1, 1);
         protected INetworkStateService mNetworkStateService;
+        protected AsyncTimeoutPolicy mTimeoutPolicy;
 
         public bool IsOnline => mNetworkStateService.IsOnline;
 
@@ -28,6 +31,7 @@ namespace MComponents.Simple.Odata.Client.Provider
         {
             mOdataService = pOdataService;
             mNetworkStateService = pNetworkStateService;
+            mTimeoutPolicy = Policy.TimeoutAsync(20, TimeoutStrategy.Pessimistic);
         }
 
         public async Task<T> Get<T>(Guid pKey, string pCollection = null, params string[] pExpands) where T : class
@@ -36,38 +40,51 @@ namespace MComponents.Simple.Odata.Client.Provider
 
             try
             {
-                await mSemaphore.WaitAsync();
-
-                bool forceCheckNestedProperties = false;
-
-                if (mCache.ContainsKey(pKey))
+                var result = await mTimeoutPolicy.ExecuteAsync(async () =>
                 {
-                    var existingValue = (T)mCache[pKey];
+                    try
+                    {
+                        await mSemaphore.WaitAsync();
 
-                    if (HasAllExpands(existingValue, pExpands))
-                        return existingValue;
+                        bool forceCheckNestedProperties = false;
 
-                    forceCheckNestedProperties = true;
-                }
+                        if (mCache.ContainsKey(pKey))
+                        {
+                            var existingValue = (T)mCache[pKey];
 
-                var value = await mOdataService.Get<T>(pKey, pCollection, pExpands);
+                            if (HasAllExpands(existingValue, pExpands))
+                                return existingValue;
 
-                if (value == null)
-                {
-                    return null;
-                }
+                            forceCheckNestedProperties = true;
+                        }
 
-                AddToCache(value, forceCheckNestedProperties);
+                        var value = await mOdataService.Get<T>(pKey, pCollection, pExpands);
 
-                var ret = (T)mCache[pKey];
+                        if (value == null)
+                        {
+                            return null;
+                        }
 
-                ReverseSetParentValue(ret);
+                        AddToCache(value, forceCheckNestedProperties);
 
-                return ret;
+                        var ret = (T)mCache[pKey];
+
+                        ReverseSetParentValue(ret);
+
+                        return ret;
+                    }
+                    finally
+                    {
+                        mSemaphore.Release();
+                    }
+                });
+
+                return result;
             }
-            finally
+            catch (Exception ex)
             {
-                mSemaphore.Release();
+                Console.WriteLine(ex.ToString());
+                return null;
             }
         }
 
@@ -112,29 +129,42 @@ namespace MComponents.Simple.Odata.Client.Provider
 
             try
             {
-                await mSemaphore.WaitAsync();
-
-                if (mCollectionCache.ContainsKey(pCollection) && pFilter == null && pExpands == null)
+                var result = await mTimeoutPolicy.ExecuteAsync(async () =>
                 {
-                    return GetFromCache<T>(pCollection);
-                }
+                    try
+                    {
+                        await mSemaphore.WaitAsync();
 
-                var odataValues = await mOdataService.Get<T>(pCollection, pFilter, pExpands);
+                        if (mCollectionCache.ContainsKey(pCollection) && pFilter == null && pExpands == null)
+                        {
+                            return GetFromCache<T>(pCollection);
+                        }
 
-                AddToCacheInternal(odataValues, pCollection);
+                        var odataValues = await mOdataService.Get<T>(pCollection, pFilter, pExpands);
 
-                var result = GetFromCache<T>(pCollection);
+                        AddToCacheInternal(odataValues, pCollection);
 
-                if (pFilter != null || pExpands != null)
-                {
-                    mCollectionCache.Remove(pCollection); //todo implement filter and expand cache
-                }
+                        var result = GetFromCache<T>(pCollection);
+
+                        if (pFilter != null || pExpands != null)
+                        {
+                            mCollectionCache.Remove(pCollection); //todo implement filter and expand cache
+                        }
+
+                        return result;
+                    }
+                    finally
+                    {
+                        mSemaphore.Release();
+                    }
+                });
 
                 return result;
             }
-            finally
+            catch (Exception ex)
             {
-                mSemaphore.Release();
+                Console.WriteLine(ex.ToString());
+                return null;
             }
         }
 
@@ -247,6 +277,16 @@ namespace MComponents.Simple.Odata.Client.Provider
             try
             {
                 await mSemaphore.WaitAsync();
+
+                if(pValue is IEnumerable enumerable)
+                {
+                    foreach (var item in enumerable)
+                    {
+                        AddToCache(item, false);
+                    }
+                    return;
+                }
+
                 AddToCache(pValue, false);
             }
             finally
@@ -315,7 +355,16 @@ namespace MComponents.Simple.Odata.Client.Provider
             {
                 var propValue = prop.GetValue(pValue);
 
-                if (propValue == null || !prop.PropertyType.IsClass && !prop.PropertyType.IsInterface)
+                if (propValue == null)
+                    continue;
+
+                if(propValue is DateTime dtValue && dtValue.Kind == DateTimeKind.Unspecified)
+                {
+                    propValue = DateTime.SpecifyKind(dtValue, DateTimeKind.Utc).ToLocalTime();
+                    prop.SetValue(pValue, propValue);
+                }
+
+                if (!prop.PropertyType.IsClass && !prop.PropertyType.IsInterface)
                     continue;
 
                 if (prop.PropertyType.IsGenericType && prop.PropertyType.GetGenericTypeDefinition().IsAssignableTo(typeof(ICollection<>)))
