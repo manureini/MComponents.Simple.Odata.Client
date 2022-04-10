@@ -101,7 +101,7 @@ namespace MComponents.Simple.Odata.Client.Provider
 
                 if (prop.PropertyType.IsGenericType && prop.PropertyType.GetGenericTypeDefinition().IsAssignableTo(typeof(ICollection<>)))
                 {
-                    var collection = (ICollection<object>)propValue;
+                    var collection = (IEnumerable)propValue;
 
                     foreach (var entry in collection)
                     {
@@ -369,46 +369,17 @@ namespace MComponents.Simple.Odata.Client.Provider
 
                 if (prop.PropertyType.IsGenericType && prop.PropertyType.GetGenericTypeDefinition().IsAssignableTo(typeof(ICollection<>)))
                 {
-                    var collection = (ICollection<object>)propValue;
+                    var entryType = prop.PropertyType.GetGenericArguments()[0];
 
-                    foreach (var entry in collection.ToArray())
+                    var method = typeof(DataProvider).GetMethod(nameof(AddToCacheListInternal), BindingFlags.Instance | BindingFlags.NonPublic).MakeGenericMethod(entryType);
+
+                    try
                     {
-                        var entryId = GetId(entry);
-
-                        if (entryId == Guid.Empty)
-                            continue;
-
-                        AddToCache(entry, pForceCheckNestedProperties);
-
-                        var cacheEntry = mCache[entryId];
-
-                        if (!collection.Contains(cacheEntry))
-                        {
-                            var oldInstance = collection.FirstOrDefault(c => GetId(c) == entryId);
-
-                            if (collection.GetType().IsArray)
-                            {
-                                var collectionArray = (Array)propValue;
-                                int index = Array.IndexOf(collectionArray, oldInstance);
-                                collectionArray.SetValue(cacheEntry, index);
-                            }
-                            else
-                            {
-                                collection.Remove(oldInstance);
-                                collection.Add(cacheEntry);
-                            }
-                        }
+                        method.Invoke(this, new object[] { id, prop, propValue, pValue, pForceCheckNestedProperties });
                     }
-
-                    var cacheValue = mCache[id];
-
-                    var cachepropValue = prop.GetValue(cacheValue);
-
-                    if (cachepropValue == null)
+                    catch (Exception ex)
                     {
-                        prop.SetValue(mCache[id], collection);
                     }
-
                     continue;
                 }
 
@@ -423,6 +394,63 @@ namespace MComponents.Simple.Odata.Client.Provider
                 {
                     prop.SetValue(mCache[id], mCache[propId]);
                 }
+            }
+        }
+
+
+        protected void AddToCacheListInternal<T>(Guid pId, PropertyInfo pPropertyInfo, IEnumerable<T> pPropValue, object pValue, bool pForceCheckNestedProperties)
+        {
+            var collection = pPropValue.ToList();
+
+            var entryIds = new List<Guid>();
+
+            foreach (var entry in collection.ToArray())
+            {
+                var entryId = GetId(entry);
+
+                if (entryId == Guid.Empty)
+                    continue;
+
+                //fix odata NHibernate bug - duplicate entries
+                if (entryIds.Contains(entryId))
+                {
+                    collection.Remove(entry);
+                    continue;
+                }
+
+                entryIds.Add(entryId);
+
+                AddToCache(entry, pForceCheckNestedProperties);
+
+                var cacheEntry = (T)mCache[entryId];
+
+                if (!collection.Contains(cacheEntry))
+                {
+                    var oldInstance = collection.FirstOrDefault(c => GetId(c) == entryId);
+
+                    /*
+                    if (collection.GetType().IsArray)
+                    {
+                        var collectionArray = (Array)propValue;
+                        int index = Array.IndexOf(collectionArray, oldInstance);
+                        collectionArray.SetValue(cacheEntry, index);
+                    }
+                    */
+
+                    collection.Remove(oldInstance);
+                    collection.Add(cacheEntry);
+                }
+            }
+
+            pPropertyInfo.SetValue(pValue, collection);
+
+            var cacheValue = mCache[pId];
+
+            var cachepropValue = pPropertyInfo.GetValue(cacheValue);
+
+            if (cachepropValue == null)
+            {
+                pPropertyInfo.SetValue(mCache[pId], collection);
             }
         }
 
