@@ -142,7 +142,7 @@ namespace MComponents.Simple.Odata.Client.Provider
 
                         var odataValues = await mOdataService.Get<T>(pCollection, pFilter, pExpands);
 
-                        AddToCacheInternal(odataValues, pCollection);
+                        AddToCacheInternal(odataValues, pCollection, pExpands != null);
 
                         var result = GetFromCache<T>(pCollection);
 
@@ -264,7 +264,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             try
             {
                 await mSemaphore.WaitAsync();
-                AddToCacheInternal(pValues, pCollection);
+                AddToCacheInternal(pValues, pCollection, false);
             }
             finally
             {
@@ -301,13 +301,13 @@ namespace MComponents.Simple.Odata.Client.Provider
             return mCache.ContainsKey(id);
         }
 
-        protected void AddToCacheInternal<T>(IEnumerable<T> pValues, string pCollection)
+        protected void AddToCacheInternal<T>(IEnumerable<T> pValues, string pCollection, bool pForceCheckNestedProperties)
         {
             var ids = new List<Guid>();
 
             foreach (var value in pValues)
             {
-                AddToCache(value, false);
+                AddToCache(value, pForceCheckNestedProperties);
                 ids.Add(GetId(value));
             }
 
