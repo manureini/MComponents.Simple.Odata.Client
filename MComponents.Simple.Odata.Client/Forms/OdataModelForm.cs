@@ -76,6 +76,11 @@ namespace MComponents.Simple.Odata.Client.Forms
                     await DataProvider.Update(Model, Collection, pArgs.ChangedValues);
                 }
             }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
             finally
             {
                 mSemaphore.Release();
