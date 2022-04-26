@@ -63,11 +63,12 @@ namespace MComponents.Simple.Odata.Client.Services
 
             if (pChangedValues != null)
             {
+                SetDateToUtcDate(pObject, pChangedValues);
                 query = query.Set(pChangedValues);
             }
             else
             {
-                foreach (var prop in tType.GetProperties())
+                foreach (var prop in pObject.GetType().GetProperties())
                 {
                     SetDateToUtcDate(pObject, prop);
                 }
@@ -177,6 +178,24 @@ namespace MComponents.Simple.Odata.Client.Services
             {
                 var newValue = DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc);
                 prop.SetValue(pValue, newValue);
+            }
+        }
+
+        private static void SetDateToUtcDate<T>(T pValue, IDictionary<string, object> changedValue) where T : class
+        {
+            foreach (var changedPropertyName in changedValue.Keys.ToArray())
+            {
+                var prop = pValue.GetType().GetProperty(changedPropertyName);
+
+                if (prop.GetCustomAttribute<DateAttribute>() == null)
+                    return;
+
+                var dateTime = changedValue[changedPropertyName] as DateTime?;
+
+                if (dateTime != null && dateTime.Value.Kind != DateTimeKind.Utc)
+                {
+                    changedValue[changedPropertyName] = DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc);
+                }
             }
         }
 
