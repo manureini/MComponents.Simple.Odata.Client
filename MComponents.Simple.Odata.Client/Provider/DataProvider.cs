@@ -168,7 +168,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
-        public async Task<T> Create<T>(T value, string pCollection = null) where T : class
+        public async Task<T> Create<T>(T pValue, string pCollection = null) where T : class
         {
             pCollection ??= typeof(T).Name;
 
@@ -176,19 +176,20 @@ namespace MComponents.Simple.Odata.Client.Provider
             {
                 await mSemaphore.WaitAsync();
 
-                var id = GetId(value);
+                var id = GetId(pValue);
 
                 if (id == Guid.Empty)
                 {
-                    value.GetType().GetProperty("Id").SetValue(value, Guid.NewGuid());
-                    id = GetId(value);
+                    pValue.GetType().GetProperty("Id").SetValue(pValue, Guid.NewGuid());
+                    id = GetId(pValue);
                 }
 
-                await mOdataService.Create<T>(value, pCollection, v => IsInCache(v));
+                await mOdataService.Create<T>(pValue, pCollection, v => IsInCache(v));
 
                 var ret = await mOdataService.Get<T>(id, pCollection); // Create will not expand stuff in the current implementation
 
-                AddToCache(ret, false);
+                AddToCache(pValue, false); //store the reference from parameter
+                AddToCache(ret, true); //store expands
 
                 if (mCollectionCache.ContainsKey(pCollection))
                 {
