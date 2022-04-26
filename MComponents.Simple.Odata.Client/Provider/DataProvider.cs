@@ -168,7 +168,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
-        public async Task<T> Create<T>(T pValue, string pCollection = null) where T : class
+        public async Task<T> Create<T>(T pValue, string pCollection = null, params string[] pExpands) where T : class
         {
             pCollection ??= typeof(T).Name;
 
@@ -186,7 +186,7 @@ namespace MComponents.Simple.Odata.Client.Provider
 
                 await mOdataService.Create<T>(pValue, pCollection, v => IsInCache(v));
 
-                var ret = await mOdataService.Get<T>(id, pCollection); // Create will not expand stuff in the current implementation
+                var ret = await mOdataService.Get<T>(id, pCollection, pExpands); // Create will not expand stuff in the current implementation
 
                 if (ret.GetType() != pValue.GetType())
                     throw new NotImplementedException("Different types not implemeted");
@@ -198,7 +198,7 @@ namespace MComponents.Simple.Odata.Client.Provider
 
                     var propValue = prop.GetValue(ret);
 
-                    if (prop.SetMethod != null)
+                    if (propValue != null && prop.SetMethod != null)
                     {
                         prop.SetValue(pValue, propValue);
                     }
