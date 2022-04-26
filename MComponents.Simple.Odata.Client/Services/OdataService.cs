@@ -176,7 +176,7 @@ namespace MComponents.Simple.Odata.Client.Services
 
             if (dateTime != null && dateTime.Value.Kind != DateTimeKind.Utc)
             {
-                var newValue = DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc);
+                var newValue = DateTime.SpecifyKind(dateTime.Value.Date, DateTimeKind.Utc);
                 prop.SetValue(pValue, newValue);
             }
         }
@@ -194,7 +194,7 @@ namespace MComponents.Simple.Odata.Client.Services
 
                 if (dateTime != null && dateTime.Value.Kind != DateTimeKind.Utc)
                 {
-                    changedValue[changedPropertyName] = DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Utc);
+                    changedValue[changedPropertyName] = DateTime.SpecifyKind(dateTime.Value.Date, DateTimeKind.Utc);
                 }
             }
         }
