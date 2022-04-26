@@ -188,6 +188,22 @@ namespace MComponents.Simple.Odata.Client.Provider
 
                 var ret = await mOdataService.Get<T>(id, pCollection); // Create will not expand stuff in the current implementation
 
+                if (ret.GetType() != pValue.GetType())
+                    throw new NotImplementedException("Different types not implemeted");
+
+                foreach (var prop in pValue.GetType().GetProperties()) //server maybe changed values. Update these, but use reference from parameter
+                {
+                    if (prop.GetMethod == null)
+                        continue;
+
+                    var propValue = prop.GetValue(ret);
+
+                    if (prop.SetMethod != null)
+                    {
+                        prop.SetValue(pValue, propValue);
+                    }
+                }
+
                 AddToCache(pValue, false); //store the reference from parameter
                 AddToCache(ret, true); //store expands
 
