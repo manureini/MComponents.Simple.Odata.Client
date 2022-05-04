@@ -135,9 +135,14 @@ namespace MComponents.Simple.Odata.Client.Provider
                 {
                     try
                     {
-                        if (mCollectionCache.ContainsKey(pCollection) && pFilter == null && pExpands == null)
+                        if (mCollectionCache.ContainsKey(pCollection))
                         {
-                            return GetFromCache<T>(pCollection);
+                            if (pFilter == null && pExpands == null)
+                            {
+                                return GetFromCache<T>(pCollection);
+                            }
+
+                            mCollectionCache.Remove(pCollection);
                         }
 
                         var odataValues = await mOdataService.Get<T>(pCollection, pFilter, pExpands);
