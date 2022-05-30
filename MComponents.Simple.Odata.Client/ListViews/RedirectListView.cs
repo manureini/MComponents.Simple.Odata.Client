@@ -12,11 +12,13 @@ namespace MComponents.Simple.Odata.Client.ListViews
 
         public void OnBeginAdd(BeginAddArgs<T> args)
         {
+            args.Cancelled = true;
             Navigation.NavigateTo(DetailUrl);
         }
 
         public void OnBeginEdit(BeginEditArgs<T> args)
         {
+            args.Cancelled = true;
             dynamic row = args.Row;
             Navigation.NavigateTo(DetailUrl + row.Id);
         }
