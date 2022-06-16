@@ -202,7 +202,12 @@ namespace MComponents.Simple.Odata.Client.Services
         private ODataBatch AddToBatch<T>(T pValue, ODataBatch batch, IIdentifiable propValue) where T : class
         {
             var type = pValue.GetType();
-            var prop = propValue.GetType().GetProperties().Single(p => p.PropertyType == type);
+            var prop = propValue.GetType().GetProperties().SingleOrDefault(p => p.PropertyType == type);
+
+            if (prop == null)
+            {
+                throw new Exception($"{propValue} does not have property with type {type}");
+            }
 
             batch += c => c.For(propValue.GetType().Name).Set(propValue).InsertEntryAsync(false);
             batch += c => c.For(propValue.GetType().Name).Key(propValue.Id).LinkEntryAsync(pValue, prop.Name);
