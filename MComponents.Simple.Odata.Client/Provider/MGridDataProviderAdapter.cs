@@ -93,7 +93,7 @@ namespace MComponents.Simple.Odata.Client.Provider
 
         public Task<T> Add(T pNewValue)
         {
-            return mDataProvider.Create(pNewValue, mCollection);
+            return mDataProvider.Create(pNewValue, mCollection, mExpands);
         }
 
         public Task Update(T pValue)
