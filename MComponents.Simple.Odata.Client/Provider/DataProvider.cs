@@ -279,14 +279,14 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
-        public async Task AddToCache<T>(IEnumerable<T> pValues, string pCollection)
+        public async Task AddToCache<T>(IEnumerable<T> pValues, string pCollection, bool pCheckNestedProperties)
         {
             pCollection ??= typeof(T).Name;
 
             try
             {
                 await mSemaphore.WaitAsync();
-                AddToCacheInternal(pValues, pCollection, false);
+                AddToCacheInternal(pValues, pCollection, pCheckNestedProperties);
             }
             finally
             {

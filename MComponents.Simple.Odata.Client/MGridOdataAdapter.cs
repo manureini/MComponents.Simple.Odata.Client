@@ -158,19 +158,17 @@ namespace MComponents.Simple.Odata.Client
 
     public class MGridOdataAdapter<T> : IMGridDataAdapter<T> where T : class
     {
+        public string Collection { get; protected set; }
+        public string[] Expands { get; protected set; }
+
         protected ODataClient mClient;
-
-        protected string mCollection;
-
-        protected string[] mExpands;
-
         protected Expression<Func<T, bool>> mFilter;
 
         public MGridOdataAdapter(ODataClient pClient, string pCollection = null, string[] pExpands = null, Expression<Func<T, bool>> pFilter = null)
         {
             mClient = pClient;
-            mCollection = pCollection;
-            mExpands = pExpands;
+            Collection = pCollection;
+            Expands = pExpands;
             mFilter = pFilter;
         }
 
@@ -180,9 +178,9 @@ namespace MComponents.Simple.Odata.Client
             {
                 var client = await GetFilteredClient(pQueryable);
 
-                if (mExpands != null)
+                if (Expands != null)
                 {
-                    client = client.Expand(mExpands);
+                    client = client.Expand(Expands);
                 }
 
                 return await client.FindEntriesAsync();
@@ -218,7 +216,7 @@ namespace MComponents.Simple.Odata.Client
         {
             try
             {
-                var client = mClient.For<T>(mCollection);
+                var client = mClient.For<T>(Collection);
 
                 if (mFilter != null)
                 {
@@ -241,7 +239,7 @@ namespace MComponents.Simple.Odata.Client
                 data = data.Where(mFilter).AsQueryable();
             }
 
-            var visitor = new OdataQueryExpressionVisitor<T>(mClient, mCollection);
+            var visitor = new OdataQueryExpressionVisitor<T>(mClient, Collection);
             var newExpressionTree = visitor.Visit(data.Expression);
 
             var lambda = Expression.Lambda(newExpressionTree);
@@ -254,7 +252,7 @@ namespace MComponents.Simple.Odata.Client
         {
             try
             {
-                await mClient.For<T>(mCollection).Set(pNewValue).InsertEntryAsync(false).ConfigureAwait(false);
+                await mClient.For<T>(Collection).Set(pNewValue).InsertEntryAsync(false).ConfigureAwait(false);
                 return pNewValue;
             }
             catch (Exception e)
@@ -269,7 +267,7 @@ namespace MComponents.Simple.Odata.Client
             try
             {
                 var id = (Guid)pValue.GetType().GetProperty("Id").GetValue(pValue);
-                await mClient.For<T>(mCollection).Key(id).Set(pValue).DeleteEntryAsync();
+                await mClient.For<T>(Collection).Key(id).Set(pValue).DeleteEntryAsync();
             }
             catch (Exception e)
             {
@@ -283,7 +281,7 @@ namespace MComponents.Simple.Odata.Client
             try
             {
                 var id = (Guid)pValue.GetType().GetProperty("Id").GetValue(pValue);
-                await mClient.For<T>(mCollection).Key(id).Set(pValue).UpdateEntryAsync(false);
+                await mClient.For<T>(Collection).Key(id).Set(pValue).UpdateEntryAsync(false);
             }
             catch (Exception e)
             {

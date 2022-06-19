@@ -13,7 +13,6 @@ namespace MComponents.Simple.Odata.Client.Provider
     {
         protected string mCollection;
 
-        protected string[] mExpands;
 
         protected Expression<Func<T, bool>> mFilter;
 
@@ -33,7 +32,7 @@ namespace MComponents.Simple.Odata.Client.Provider
                 try
                 {
                     var result = await mOdataAdapter.GetData(pQueryable);
-                    await mDataProvider.AddToCache(result, mCollection);
+                    await mDataProvider.AddToCache(result, mCollection, mOdataAdapter.Expands != null && mOdataAdapter.Expands.Any());
 
                     var ids = result.Select(v => mDataProvider.GetId(v));
 
@@ -93,7 +92,7 @@ namespace MComponents.Simple.Odata.Client.Provider
 
         public Task<T> Add(T pNewValue)
         {
-            return mDataProvider.Create(pNewValue, mCollection, mExpands);
+            return mDataProvider.Create(pNewValue, mCollection, mOdataAdapter.Expands);
         }
 
         public Task Update(T pValue)
