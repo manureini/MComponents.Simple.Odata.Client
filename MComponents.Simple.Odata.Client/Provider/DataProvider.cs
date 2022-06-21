@@ -476,7 +476,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
-        protected void RemoveFromCache(object pValue)
+        public void RemoveFromCache(object pValue)
         {
             var id = GetId(pValue);
 
