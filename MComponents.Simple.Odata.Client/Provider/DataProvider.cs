@@ -225,6 +225,19 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
+        public Task<T> Update<T>(T pValue, string pCollection = null, params string[] pChangedValues) where T : class
+        {
+            var changedValuesDict = new Dictionary<string, object>();
+
+            foreach (var pChangedValue in pChangedValues)
+            {
+                var value = pValue.GetType().GetProperty(pChangedValue).GetValue(pValue);
+                changedValuesDict.Add(pChangedValue, value);
+            }
+
+            return Update<T>(pValue, pCollection, changedValuesDict);
+        }
+
         public async Task<T> Update<T>(T pValue, string pCollection = null, IDictionary<string, object> pChangedValues = null) where T : class
         {
             pCollection ??= typeof(T).Name;
