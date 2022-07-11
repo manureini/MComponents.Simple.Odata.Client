@@ -173,7 +173,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
-        public async Task<T> Create<T>(T pValue, string pCollection = null, params string[] pExpands) where T : class
+        public async Task Create<T>(T pValue, string pCollection = null, params string[] pExpands) where T : class
         {
             pCollection ??= typeof(T).Name;
 
@@ -217,7 +217,7 @@ namespace MComponents.Simple.Odata.Client.Provider
                     mCollectionCache[pCollection].Add(id);
                 }
 
-                return ret;
+                //  return ret; 11.07.2022 sould this be pValue?
             }
             finally
             {

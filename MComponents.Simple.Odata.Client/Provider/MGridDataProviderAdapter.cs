@@ -90,9 +90,10 @@ namespace MComponents.Simple.Odata.Client.Provider
             return (await mDataProvider.Get<T>(mCollection)).LongCount();
         }
 
-        public Task<T> Add(T pNewValue)
+        public async Task<T> Add(T pNewValue)
         {
-            return mDataProvider.Create(pNewValue, mCollection, mOdataAdapter.Expands);
+            await mDataProvider.Create(pNewValue, mCollection, mOdataAdapter.Expands);
+            return pNewValue;
         }
 
         public Task Update(T pValue)

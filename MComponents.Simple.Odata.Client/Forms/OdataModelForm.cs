@@ -68,7 +68,7 @@ namespace MComponents.Simple.Odata.Client.Forms
             {
                 if (Id == null)
                 {
-                    Model = await DataProvider.Create(Model, Collection);
+                    await DataProvider.Create(Model, Collection);
                     Id = DataProvider.GetId(Model);
                 }
                 else
