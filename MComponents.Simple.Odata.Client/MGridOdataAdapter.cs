@@ -1,11 +1,13 @@
 ﻿using MComponents.MGrid;
 using Microsoft.OData.Edm;
+using MShared;
 using PIS.Services;
 using Simple.OData.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace MComponents.Simple.Odata.Client
@@ -164,12 +166,28 @@ namespace MComponents.Simple.Odata.Client
         protected ODataClient mClient;
         protected Expression<Func<T, bool>> mFilter;
 
-        public MGridOdataAdapter(ODataClient pClient, string pCollection = null, string[] pExpands = null, Expression<Func<T, bool>> pFilter = null)
+        public MGridOdataAdapter(ODataClient pClient, string pCollection = null, IEnumerable<string> pExpands = null, Expression<Func<T, bool>> pFilter = null)
         {
             mClient = pClient;
             Collection = pCollection;
-            Expands = pExpands;
             mFilter = pFilter;
+
+            if (pExpands != null)
+            {
+                var expands = pExpands.ToList();
+
+                var expandableProperties = typeof(T).GetProperties().Where(p => p.GetCustomAttribute<ExpandAttribute>() != null);
+
+                foreach (var propInfo in expandableProperties)
+                {
+                    if (!expands.Contains(propInfo.Name))
+                    {
+                        expands.Add(propInfo.Name);
+                    }
+                }
+
+                Expands = expands.ToArray();
+            }
         }
 
         public virtual async Task<IEnumerable<T>> GetData(IQueryable<T> pQueryable)

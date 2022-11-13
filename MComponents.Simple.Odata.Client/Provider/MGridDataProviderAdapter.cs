@@ -32,6 +32,7 @@ namespace MComponents.Simple.Odata.Client.Provider
                 try
                 {
                     var result = await mOdataAdapter.GetData(pQueryable);
+
                     await mDataProvider.AddToCache(result, mCollection, mOdataAdapter.Expands != null && mOdataAdapter.Expands.Any());
 
                     var ids = result.Select(v => mDataProvider.GetId(v));

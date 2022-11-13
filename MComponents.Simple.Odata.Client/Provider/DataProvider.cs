@@ -509,11 +509,13 @@ namespace MComponents.Simple.Odata.Client.Provider
 
         protected bool HasAllExpands(object pValue, string[] pExpands)
         {
-            var expandableProperties = pValue.GetType().GetProperties().Where(p => p.GetCustomAttribute<ExpandAttribute>() != null);
+            var properties = pValue.GetType().GetProperties();
+
+            var expandableProperties = properties.Where(p => p.GetCustomAttribute<ExpandAttribute>() != null);
 
             foreach (var property in expandableProperties)
             {
-                if (property.GetValue(pValue) == null)
+                if (!IsExpanded(properties, property, pValue))
                     return false;
             }
 
@@ -521,14 +523,47 @@ namespace MComponents.Simple.Odata.Client.Provider
             {
                 foreach (var expand in pExpands)
                 {
+                    if (expand.Contains("=") || expand.Contains("("))
+                        return false;
+
                     var prop = ReflectionHelper.GetIMPropertyInfo(pValue.GetType(), expand, null);
 
-                    if (prop.GetValue(pValue) == null)
+                    if (!IsExpanded(properties, prop, pValue))
                         return false;
                 }
             }
 
             return true;
+        }
+
+        protected bool IsExpanded(PropertyInfo[] pAllProperties, PropertyInfo pProperty, object pValue)
+        {
+            if (pProperty.GetValue(pValue) != null)
+                return true;
+
+            var propIdName = pProperty.Name + "Id";
+
+            var idProp = pAllProperties.FirstOrDefault(p => p.Name == propIdName);
+
+            if (idProp == null)
+                return false;
+
+            return pProperty.GetValue(pValue) == null;
+        }
+
+        protected bool IsExpanded(PropertyInfo[] pAllProperties, IMPropertyInfo pProperty, object pValue)
+        {
+            if (pProperty.GetValue(pValue) != null)
+                return true;
+
+            var propIdName = pProperty.Name + "Id";
+
+            var idProp = pAllProperties.FirstOrDefault(p => p.Name == propIdName);
+
+            if (idProp == null)
+                return false;
+
+            return pProperty.GetValue(pValue) == null;
         }
 
         public Guid GetId(object pValue)
