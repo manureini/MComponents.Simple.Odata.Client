@@ -563,7 +563,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             if (idProp == null)
                 return false;
 
-            return pProperty.GetValue(pValue) == null;
+            return idProp.GetValue(pValue) == null;
         }
 
         public Guid GetId(object pValue)
