@@ -216,8 +216,6 @@ namespace MComponents.Simple.Odata.Client.Provider
                 {
                     mCollectionCache[pCollection].Add(id);
                 }
-
-                //  return ret; 11.07.2022 sould this be pValue?
             }
             finally
             {
