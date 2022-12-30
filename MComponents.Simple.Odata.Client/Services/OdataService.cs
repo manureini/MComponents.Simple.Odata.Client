@@ -5,6 +5,7 @@ using Simple.OData.Client;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -90,7 +91,7 @@ namespace MComponents.Simple.Odata.Client.Services
         {
             var valueType = pValue.GetType();
 
-            List<IIdentifiable> nestedValues = new();
+            List<(string propName, IIdentifiable propValue)> nestedValues = new();
 
             List<string> ignoreProps = new List<string>();
 
@@ -104,7 +105,7 @@ namespace MComponents.Simple.Odata.Client.Services
                         continue;
 
                     ignoreProps.Add(prop.Name);
-                    nestedValues.Add(propValue);
+                    nestedValues.Add((prop.Name, propValue));
                     continue;
                 }
 
@@ -130,7 +131,7 @@ namespace MComponents.Simple.Odata.Client.Services
                         if (!ignoreProps.Contains(prop.Name))
                             ignoreProps.Add(prop.Name);
 
-                        nestedValues.Add(value);
+                        nestedValues.Add((prop.Name, value));
                     }
 
                     continue;
@@ -161,7 +162,7 @@ namespace MComponents.Simple.Odata.Client.Services
 
             foreach (var value in nestedValues)
             {
-                batch = AddToBatch(pValue, batch, value);
+                batch = AddToBatch(pValue, batch, value.propName, value.propValue);
             }
 
             await batch.ExecuteAsync();
@@ -199,20 +200,33 @@ namespace MComponents.Simple.Odata.Client.Services
             }
         }
 
-        private ODataBatch AddToBatch<T>(T pValue, ODataBatch batch, IIdentifiable propValue) where T : class
+        private ODataBatch AddToBatch<T>(T pValue, ODataBatch pBatch, string pPropName, IIdentifiable pPropValue) where T : class
         {
             var type = pValue.GetType();
-            var prop = propValue.GetType().GetProperties().SingleOrDefault(p => p.PropertyType == type);
+            var propValType = pPropValue.GetType();
+            var property = type.GetProperty(pPropName);
 
-            if (prop == null)
+            string propName = null;
+
+            var inverseProp = property.GetCustomAttribute<InversePropertyAttribute>();
+
+            if (inverseProp != null)
             {
-                throw new Exception($"{propValue} does not have property with type {type}");
+                propName = propValType.GetProperties().SingleOrDefault(p => p.Name == inverseProp.Property)?.Name;
             }
 
-            batch += c => c.For(propValue.GetType().Name).Set(propValue).InsertEntryAsync(false);
-            batch += c => c.For(propValue.GetType().Name).Key(propValue.Id).LinkEntryAsync(pValue, prop.Name);
+            propName ??= propValType.GetProperties().SingleOrDefault(p => p.Name == type.Name && p.PropertyType == type)?.Name;
+            propName ??= propValType.GetProperties().SingleOrDefault(p => p.PropertyType == type)?.Name;
 
-            return batch;
+            if (propName == null)
+            {
+                throw new Exception($"{pPropValue} does not have inverse property with type {type} or result is ambiguous");
+            }
+
+            pBatch += c => c.For(propValType.Name).Set(pPropValue).InsertEntryAsync(false);
+            pBatch += c => c.For(propValType.Name).Key(pPropValue.Id).LinkEntryAsync(pValue, propName);
+
+            return pBatch;
         }
 
         public async Task Delete<T>(Guid pKey, string pCollection = null) where T : class

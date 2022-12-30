@@ -57,7 +57,7 @@ namespace MComponents.Simple.Odata.Client.Forms
         public virtual async Task LoadModel()
         {
             Model = await DataProvider.Get<T>(Id.Value, Collection, Expands);
-            _ = OnModelLoaded.InvokeAsync(this);
+            await OnModelLoaded.InvokeAsync(this);
         }
 
         public async virtual Task OnSubmit(MFormSubmitArgs pArgs)
