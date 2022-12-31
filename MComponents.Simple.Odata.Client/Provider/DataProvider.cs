@@ -1,4 +1,6 @@
-﻿using MComponents.Simple.Odata.Client.Services;
+﻿using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.Office2010.Excel;
+using MComponents.Simple.Odata.Client.Services;
 using MShared;
 using Polly;
 using Polly.Timeout;
@@ -18,6 +20,7 @@ namespace MComponents.Simple.Odata.Client.Provider
     {
         protected Dictionary<Guid, object> mCache = new();
         protected Dictionary<string, List<Guid>> mCollectionCache = new();
+        protected Dictionary<Guid, Dictionary<string, List<Guid>>> mNestedCollectionProperties = new();
 
         protected OdataService mOdataService;
 
@@ -70,6 +73,7 @@ namespace MComponents.Simple.Odata.Client.Provider
                         var ret = (T)mCache[pKey];
 
                         ReverseSetParentValue(ret);
+                        StoreNestedCollections(ret);
 
                         return ret;
                     }
@@ -88,7 +92,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             }
         }
 
-        private static void ReverseSetParentValue(object parentValue)
+        private void ReverseSetParentValue(object parentValue)
         {
             var parentType = parentValue.GetType();
 
@@ -115,6 +119,51 @@ namespace MComponents.Simple.Odata.Client.Provider
                 }
 
                 //    ReverseSetParentValue(propValue);
+            }
+        }
+
+        private void StoreNestedCollections(object pValue)
+        {
+            var parentType = pValue.GetType();
+
+            foreach (var prop in parentType.GetProperties())
+            {
+                if (prop.PropertyType.IsGenericType && prop.PropertyType.GetGenericTypeDefinition().IsAssignableTo(typeof(ICollection<>)))
+                {
+                    var genericType = prop.PropertyType.GetGenericArguments()[0];
+
+                    if (!genericType.IsAssignableTo(typeof(IIdentifiable)))
+                        continue;
+
+                    var collection = (IEnumerable)prop.GetValue(pValue);
+
+                    if (collection == null)
+                        continue;
+
+                    var ids = new List<Guid>();
+
+                    foreach (var entry in collection)
+                    {
+                        ids.Add(((IIdentifiable)entry).Id);
+                    }
+
+                    var valueId = GetId(pValue);
+
+                    if (mNestedCollectionProperties.ContainsKey(valueId))
+                    {
+                        //todo removed this temporary for testing tracker
+
+                        //mNestedCollectionProperties[valueId].Remove(prop.Name);
+                        // mNestedCollectionProperties[valueId].Add(prop.Name, ids);
+                    }
+                    else
+                    {
+                        mNestedCollectionProperties.Add(valueId, new Dictionary<string, List<Guid>>()
+                        {
+                            [prop.Name] = ids
+                        });
+                    }
+                }
             }
         }
 
@@ -189,7 +238,7 @@ namespace MComponents.Simple.Odata.Client.Provider
                     id = GetId(pValue);
                 }
 
-                await mOdataService.Create<T>(pValue, pCollection, v => IsInCache(v));
+                await mOdataService.Create<T>(pValue, pCollection, NestedPropertsShouldBeSkipped, NestedCollectionPropertyOldValueFunc);
 
                 var ret = await mOdataService.Get<T>(id, pCollection, pExpands); // Create will not expand stuff in the current implementation
 
@@ -244,7 +293,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             {
                 await mSemaphore.WaitAsync();
 
-                await mOdataService.Update<T>(pValue, pChangedValues, pCollection);
+                await mOdataService.Update<T>(pValue, pChangedValues, pCollection, NestedPropertsShouldBeSkipped, NestedCollectionPropertyOldValueFunc);
             }
             finally
             {
@@ -260,6 +309,28 @@ namespace MComponents.Simple.Odata.Client.Provider
                 throw new InvalidOperationException($"Duplicate instance of entity {id} {typeof(T)}");
 
             return pValue;
+        }
+
+        private List<Guid> NestedCollectionPropertyOldValueFunc(object v, string prop)
+        {
+            var id = GetId(v);
+
+            if (!mNestedCollectionProperties.ContainsKey(id))
+            {
+                mNestedCollectionProperties.Add(id, new Dictionary<string, List<Guid>>());
+            }
+
+            if (!mNestedCollectionProperties[id].ContainsKey(prop))
+            {
+                mNestedCollectionProperties[id].Add(prop, new List<Guid>());
+            }
+
+            return mNestedCollectionProperties[id][prop];
+        }
+
+        protected bool NestedPropertsShouldBeSkipped(IIdentifiable value)
+        {
+            return IsInCache(value);
         }
 
         public async Task Remove<T>(Guid pId, string pCollection = null) where T : class
@@ -429,7 +500,6 @@ namespace MComponents.Simple.Odata.Client.Provider
                 }
             }
         }
-
 
         protected void AddToCacheListInternal<T>(Guid pId, PropertyInfo pPropertyInfo, IEnumerable<T> pPropValue, object pValue, bool pForceCheckNestedProperties)
         {

@@ -47,37 +47,87 @@ namespace MComponents.Simple.Odata.Client.Services
             return await query.FindEntriesAsync();
         }
 
-        public async Task Update<T>(T pObject, IDictionary<string, object> pChangedValues, string pCollection = null) where T : class
+        public async Task Update<T>(T pValue, IDictionary<string, object> pChangedValues, string pCollection = null, Func<IIdentifiable, bool> pNestedPropertyShouldBeSkipped = null, Func<object, string, List<Guid>> pNestedCollectionPropertyOldValueFunc = null) where T : class
         {
             Type tType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
 
             var idProperty = tType.GetProperties().First(f => f.Name.ToLower() == "id");
-            var keyValue = idProperty.GetValue(pObject);
+            var keyValue = idProperty.GetValue(pValue);
 
-            var query = Client.For<T>(pCollection).Key(keyValue);
-
-            /*
-            foreach (var entry in pChangedValues)
-            {
-                Console.WriteLine(entry.Key + "  " + entry.Value);
-            }*/
+            var propertyInfos = pValue.GetType().GetProperties();
 
             if (pChangedValues != null)
             {
-                SetDateToUtcDate(pObject, pChangedValues);
-                query = query.Set(pChangedValues);
+                propertyInfos = propertyInfos.Where(p => pChangedValues.ContainsKey(p.Name)).ToArray();
             }
-            else
+
+            CheckForAddedNestedProperties(pValue, propertyInfos, pNestedPropertyShouldBeSkipped, pNestedCollectionPropertyOldValueFunc, out List<(string propName, IIdentifiable propValue)> nestedValues, out List<string> ignoreProps);
+
+            CheckForRemovedNestedProperties(pValue, propertyInfos, pNestedCollectionPropertyOldValueFunc, out List<(string propName, Guid propId)> removedValues, ref ignoreProps);
+
+            if (nestedValues.Count == 0 && removedValues.Count == 0) //no batch magic required
             {
-                foreach (var prop in pObject.GetType().GetProperties())
+                var query = Client.For<T>(pCollection).Key(keyValue);
+
+                if (pChangedValues != null)
                 {
-                    SetDateToUtcDate(pObject, prop);
+                    foreach (var ignoreprop in ignoreProps)
+                    {
+                        pChangedValues.Remove(ignoreprop);
+                    }
+
+                    if (!pChangedValues.Any())
+                        return;
+
+                    query = query.Set(pChangedValues);
+                }
+                else
+                {
+                    query = query.Set(pValue);
                 }
 
-                query = query.Set(pObject);
+                await query.UpdateEntryAsync(false);
+                return;
             }
 
-            await query.UpdateEntryAsync(false);
+            var batch = new ODataBatch(Client, true);
+
+            batch += c =>
+            {
+                if (pChangedValues != null)
+                {
+                    foreach (var ignoreprop in ignoreProps)
+                    {
+                        pChangedValues.Remove(ignoreprop);
+                    }
+
+                    if (!pChangedValues.Any())
+                        return Task.CompletedTask;
+
+                    return Client.For<T>(pCollection).Key(keyValue).Set(pChangedValues).UpdateEntryAsync(false);
+                }
+
+                var client = Client.For<T>(pCollection).Key(keyValue).Set(pValue);
+
+                foreach (var prop in ignoreProps)
+                {
+                    client.IgnoreProperty(prop);
+                }
+
+                return client.UpdateEntryAsync(false);
+            };
+
+            foreach (var value in removedValues)
+            {
+                batch = AddToBatchRemoveNestedPropertyCollectionItem(pValue, batch, value.propName, value.propId);
+            }
+
+            foreach (var value in nestedValues)
+            {
+                batch = AddToBatchAddNestedProperty(pValue, batch, value.propName, value.propValue);
+            }
+
+            await batch.ExecuteAsync();
         }
 
         public async Task<T> Create<T>(IDictionary<string, object> pChangedValues, string pCollection = null) where T : class
@@ -87,15 +137,44 @@ namespace MComponents.Simple.Odata.Client.Services
             return await query.InsertEntryAsync();
         }
 
-        public async Task Create<T>(T pValue, string pCollection = null, Func<IIdentifiable, bool> pNestedPropertyShouldBeSkipped = null) where T : class
+        public async Task Create<T>(T pValue, string pCollection = null, Func<IIdentifiable, bool> pNestedPropertyShouldBeSkipped = null, Func<object, string, List<Guid>> pNestedCollectionPropertyOldValueFunc = null) where T : class
         {
-            var valueType = pValue.GetType();
+            CheckForAddedNestedProperties(pValue, pValue.GetType().GetProperties(), pNestedPropertyShouldBeSkipped, pNestedCollectionPropertyOldValueFunc, out List<(string propName, IIdentifiable propValue)> pNestedValues, out List<string> pIgnoreProps);
 
-            List<(string propName, IIdentifiable propValue)> nestedValues = new();
+            if (pNestedValues.Count == 0) //no batch magic required
+            {
+                await Client.For<T>(pCollection).Set(pValue).InsertEntryAsync(false);
+                return;
+            }
 
-            List<string> ignoreProps = new List<string>();
+            var batch = new ODataBatch(Client, true);
 
-            foreach (var prop in valueType.GetProperties())
+            batch += c =>
+            {
+                var client = c.For<T>(pCollection).Set(pValue);
+
+                foreach (var prop in pIgnoreProps)
+                {
+                    client.IgnoreProperty(prop);
+                }
+
+                return client.InsertEntryAsync(false);
+            };
+
+            foreach (var value in pNestedValues)
+            {
+                batch = AddToBatchAddNestedProperty(pValue, batch, value.propName, value.propValue);
+            }
+
+            await batch.ExecuteAsync();
+        }
+
+        private static void CheckForAddedNestedProperties<T>(T pValue, IEnumerable<PropertyInfo> pProperties, Func<IIdentifiable, bool> pNestedPropertyShouldBeSkipped, Func<T, string, List<Guid>> pNestedCollectionPropertyOldValueFunc, out List<(string propName, IIdentifiable propValue)> pNestedValues, out List<string> pIgnoreProps) where T : class
+        {
+            pNestedValues = new();
+            pIgnoreProps = new List<string>();
+
+            foreach (var prop in pProperties)
             {
                 if (typeof(IIdentifiable).IsAssignableFrom(prop.PropertyType))
                 {
@@ -104,8 +183,8 @@ namespace MComponents.Simple.Odata.Client.Services
                     if (propValue == null || (pNestedPropertyShouldBeSkipped != null && pNestedPropertyShouldBeSkipped(propValue)))
                         continue;
 
-                    ignoreProps.Add(prop.Name);
-                    nestedValues.Add((prop.Name, propValue));
+                    pIgnoreProps.Add(prop.Name);
+                    pNestedValues.Add((prop.Name, propValue));
                     continue;
                 }
 
@@ -123,15 +202,18 @@ namespace MComponents.Simple.Odata.Client.Services
                     if (enumerable == null)
                         continue;
 
+                    var oldValues = pNestedCollectionPropertyOldValueFunc(pValue, prop.Name);
+
                     foreach (IIdentifiable value in enumerable)
                     {
                         if (value == null || (pNestedPropertyShouldBeSkipped != null && pNestedPropertyShouldBeSkipped(value)))
                             continue;
 
-                        if (!ignoreProps.Contains(prop.Name))
-                            ignoreProps.Add(prop.Name);
+                        if (!pIgnoreProps.Contains(prop.Name))
+                            pIgnoreProps.Add(prop.Name);
 
-                        nestedValues.Add((prop.Name, value));
+                        oldValues.Add(value.Id);
+                        pNestedValues.Add((prop.Name, value));
                     }
 
                     continue;
@@ -139,33 +221,58 @@ namespace MComponents.Simple.Odata.Client.Services
 
                 SetDateToUtcDate(pValue, prop);
             }
+        }
 
-            if (nestedValues.Count == 0) //no batch magic required
+        private static void CheckForRemovedNestedProperties<T>(T pValue, IEnumerable<PropertyInfo> pProperties, Func<T, string, List<Guid>> pNestedCollectionPropertyOldValueFunc, out List<(string propName, Guid propId)> pRemovedValues, ref List<string> pIgnoreProps) where T : class
+        {
+            pRemovedValues = new();
+
+            foreach (var prop in pProperties)
             {
-                await Client.For<T>(pCollection).Set(pValue).InsertEntryAsync(false);
-                return;
-            }
-
-            var batch = new ODataBatch(Client, true);
-
-            batch += c =>
-            {
-                var client = c.For<T>(pCollection).Set(pValue);
-
-                foreach (var prop in ignoreProps)
+                if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType.IsGenericType)
                 {
-                    client.IgnoreProperty(prop);
+                    var genericArgType = prop.PropertyType.GetGenericArguments()[0];
+
+                    if (!typeof(IIdentifiable).IsAssignableFrom(genericArgType))
+                    {
+                        continue;
+                    }
+
+                    var enumerable = (IEnumerable)prop.GetValue(pValue);
+
+                    if (enumerable == null)
+                        continue;
+
+                    if (!pIgnoreProps.Contains(prop.Name))
+                        pIgnoreProps.Add(prop.Name);
+
+                    var oldValueIds = pNestedCollectionPropertyOldValueFunc(pValue, prop.Name);
+
+                    if (oldValueIds == null)
+                        continue;
+
+                    var oldValueIdsCopy = oldValueIds.ToList();
+
+                    foreach (IIdentifiable value in enumerable)
+                    {
+                        if (value == null)
+                            continue;
+
+                        oldValueIdsCopy.Remove(value.Id);
+                    }
+
+                    if (oldValueIdsCopy.Any())
+                    {
+                        foreach (var oldValueId in oldValueIdsCopy)
+                        {
+                            pRemovedValues.Add((prop.Name, oldValueId));
+                            oldValueIds.Remove(oldValueId);
+                        }
+                    }
                 }
 
-                return client.InsertEntryAsync(false);
-            };
-
-            foreach (var value in nestedValues)
-            {
-                batch = AddToBatch(pValue, batch, value.propName, value.propValue);
+                SetDateToUtcDate(pValue, prop);
             }
-
-            await batch.ExecuteAsync();
         }
 
         private static void SetDateToUtcDate<T>(T pValue, PropertyInfo prop) where T : class
@@ -200,11 +307,16 @@ namespace MComponents.Simple.Odata.Client.Services
             }
         }
 
-        private ODataBatch AddToBatch<T>(T pValue, ODataBatch pBatch, string pPropName, IIdentifiable pPropValue) where T : class
+        private ODataBatch AddToBatchAddNestedProperty<T>(T pValue, ODataBatch pBatch, string pPropName, IIdentifiable pPropValue) where T : class
         {
             var type = pValue.GetType();
             var propValType = pPropValue.GetType();
             var property = type.GetProperty(pPropName);
+
+            if (pPropValue.Id == Guid.Empty)
+            {
+                pPropValue.Id = Guid.NewGuid();
+            }
 
             string propName = null;
 
@@ -225,6 +337,15 @@ namespace MComponents.Simple.Odata.Client.Services
 
             pBatch += c => c.For(propValType.Name).Set(pPropValue).InsertEntryAsync(false);
             pBatch += c => c.For(propValType.Name).Key(pPropValue.Id).LinkEntryAsync(pValue, propName);
+
+            return pBatch;
+        }
+
+        private ODataBatch AddToBatchRemoveNestedPropertyCollectionItem<T>(T pValue, ODataBatch pBatch, string pPropName, Guid pPropId) where T : class
+        {
+            var propValType = pValue.GetType().GetProperty(pPropName);
+
+            pBatch += c => c.For(propValType.Name).Key(pPropId).DeleteEntryAsync();
 
             return pBatch;
         }
