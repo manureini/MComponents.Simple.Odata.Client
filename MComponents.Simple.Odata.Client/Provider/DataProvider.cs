@@ -151,10 +151,8 @@ namespace MComponents.Simple.Odata.Client.Provider
 
                     if (mNestedCollectionProperties.ContainsKey(valueId))
                     {
-                        //todo removed this temporary for testing tracker
-
-                        //mNestedCollectionProperties[valueId].Remove(prop.Name);
-                        // mNestedCollectionProperties[valueId].Add(prop.Name, ids);
+                        mNestedCollectionProperties[valueId].Remove(prop.Name);
+                        mNestedCollectionProperties[valueId].Add(prop.Name, ids);
                     }
                     else
                     {
