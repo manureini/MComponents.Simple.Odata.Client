@@ -39,6 +39,10 @@ namespace MComponents.Simple.Odata.Client.Forms
             {
                 Model = new U();
                 mNavigationPropertyChildToParent.SetValue(Model, Parent);
+
+                var idprop = typeof(U).GetProperty(NavigationPropertyChildToParent + "Id");
+                idprop?.SetValue(Model, Parent.Id);
+
                 return;
             }
 
