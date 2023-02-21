@@ -1,5 +1,6 @@
 ﻿using DocumentFormat.OpenXml.Bibliography;
 using DocumentFormat.OpenXml.Office2010.Excel;
+using MComponents.Shared.Localization;
 using MComponents.Simple.Odata.Client.Services;
 using MShared;
 using Polly;
@@ -236,6 +237,8 @@ namespace MComponents.Simple.Odata.Client.Provider
                     id = GetId(pValue);
                 }
 
+                LocalizationHelper.SyncLocalizedStrings(pValue);
+
                 await mOdataService.Create<T>(pValue, pCollection, NestedPropertsShouldBeSkipped, NestedCollectionPropertyOldValueFunc);
 
                 var ret = await mOdataService.Get<T>(id, pCollection, pExpands); // Create will not expand stuff in the current implementation
@@ -286,6 +289,8 @@ namespace MComponents.Simple.Odata.Client.Provider
         public async Task<T> Update<T>(T pValue, string pCollection = null, IDictionary<string, object> pChangedValues = null) where T : class
         {
             pCollection ??= typeof(T).Name;
+
+            LocalizationHelper.SyncLocalizedStrings(pValue, pChangedValues);
 
             try
             {
@@ -451,7 +456,10 @@ namespace MComponents.Simple.Odata.Client.Provider
                 return;
 
             if (!mCache.ContainsKey(id))
+            {
+                //LocalizationHelper.SyncLocalizedStrings(pValue);
                 mCache.Add(id, pValue);
+            }
 
             foreach (var prop in pValue.GetType().GetProperties())
             {
