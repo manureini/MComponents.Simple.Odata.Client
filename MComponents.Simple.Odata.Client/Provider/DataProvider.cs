@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -291,6 +292,29 @@ namespace MComponents.Simple.Odata.Client.Provider
             pCollection ??= typeof(T).Name;
 
             LocalizationHelper.SyncLocalizedStrings(pValue, pChangedValues);
+
+            if (pChangedValues != null)
+            {
+                var keys = pChangedValues.Keys.ToArray();
+
+                foreach (var key in keys)
+                {
+                    if (key.EndsWith("Loc"))
+                    {
+                        var locValue = (JsonDocument)pChangedValues[key];
+                        pChangedValues.Remove(key);
+
+                        await mOdataService.Client.ExecuteFunctionAsScalarAsync<bool>("SetJsonDocumentValue", new Dictionary<string, object>()
+                        {
+                            ["Collection"] = pCollection,
+                            ["Type"] = typeof(T).FullName,
+                            ["Id"] = GetId(pValue),
+                            ["Property"] = key,
+                            ["JsonStr"] = locValue.RootElement.ToString()
+                        });
+                    }
+                }
+            }
 
             try
             {
