@@ -11,6 +11,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
@@ -29,13 +30,15 @@ namespace MComponents.Simple.Odata.Client.Provider
         protected SemaphoreSlim mSemaphore = new(1, 1);
         protected INetworkStateService mNetworkStateService;
         protected AsyncTimeoutPolicy mTimeoutPolicy;
+        protected HttpClient mHttpClient;
 
         public bool IsOnline => mNetworkStateService.IsOnline;
 
-        public DataProvider(OdataService pOdataService, INetworkStateService pNetworkStateService)
+        public DataProvider(OdataService pOdataService, INetworkStateService pNetworkStateService, HttpClient pHttpClient)
         {
             mOdataService = pOdataService;
             mNetworkStateService = pNetworkStateService;
+            mHttpClient = pHttpClient;
             mTimeoutPolicy = Policy.TimeoutAsync(20, TimeoutStrategy.Pessimistic);
         }
 
@@ -242,6 +245,8 @@ namespace MComponents.Simple.Odata.Client.Provider
 
                 await mOdataService.Create<T>(pValue, pCollection, NestedPropertsShouldBeSkipped, NestedCollectionPropertyOldValueFunc);
 
+                await UpdateLocValues(pCollection, pValue);
+
                 var ret = await mOdataService.Get<T>(id, pCollection, pExpands); // Create will not expand stuff in the current implementation
 
                 if (ret.GetType() != pValue.GetType())
@@ -293,34 +298,12 @@ namespace MComponents.Simple.Odata.Client.Provider
 
             LocalizationHelper.SyncLocalizedStrings(pValue, pChangedValues);
 
-            if (pChangedValues != null)
-            {
-                var keys = pChangedValues.Keys.ToArray();
-
-                foreach (var key in keys)
-                {
-                    if (key.EndsWith("Loc"))
-                    {
-                        var locValue = (JsonDocument)pChangedValues[key];
-                        pChangedValues.Remove(key);
-
-                        await mOdataService.Client.ExecuteFunctionAsScalarAsync<bool>("SetJsonDocumentValue", new Dictionary<string, object>()
-                        {
-                            ["Collection"] = pCollection,
-                            ["Type"] = typeof(T).FullName,
-                            ["Id"] = GetId(pValue),
-                            ["Property"] = key,
-                            ["JsonStr"] = locValue.RootElement.ToString()
-                        });
-                    }
-                }
-            }
-
             try
             {
                 await mSemaphore.WaitAsync();
 
                 await mOdataService.Update<T>(pValue, pChangedValues, pCollection, NestedPropertsShouldBeSkipped, NestedCollectionPropertyOldValueFunc);
+                await UpdateLocValues(pCollection, pValue, pChangedValues);
             }
             finally
             {
@@ -336,6 +319,36 @@ namespace MComponents.Simple.Odata.Client.Provider
                 throw new InvalidOperationException($"Duplicate instance of entity {id} {typeof(T)}");
 
             return pValue;
+        }
+
+        private async Task UpdateLocValues<T>(string pCollection, T pValue, IDictionary<string, object> pChangedValues = null)
+        {
+            IEnumerable<string> properties;
+
+            if (pChangedValues == null)
+            {
+                properties = typeof(T).GetProperties().Select(p => p.Name).Where(p => p.EndsWith("Loc"));
+            }
+            else
+            {
+                properties = pChangedValues.Keys.Where(k => k.EndsWith("Loc")).ToArray();
+            }
+
+            foreach (var key in properties)
+            {
+                JsonDocument locValue;
+
+                if (pChangedValues == null)
+                {
+                    locValue = (JsonDocument)typeof(T).GetProperty(key).GetValue(pValue);
+                }
+                else
+                {
+                    locValue = (JsonDocument)pChangedValues[key];
+                }
+
+                await mHttpClient.PostAsync($"/LocalizationValues/SetJsonDocumentValue/{pCollection}/{typeof(T).FullName}/{GetId(pValue)}/{key}", new StringContent(locValue.RootElement.ToString()));
+            }
         }
 
         private List<Guid> NestedCollectionPropertyOldValueFunc(object v, string prop)
