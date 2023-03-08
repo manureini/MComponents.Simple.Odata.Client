@@ -347,7 +347,10 @@ namespace MComponents.Simple.Odata.Client.Provider
                     locValue = (JsonDocument)pChangedValues[key];
                 }
 
-                await mHttpClient.PostAsync($"/LocalizationValues/SetJsonDocumentValue/{pCollection}/{typeof(T).FullName}/{GetId(pValue)}/{key}", new StringContent(locValue.RootElement.ToString()));
+                if (locValue != null)
+                {
+                    await mHttpClient.PostAsync($"/LocalizationValues/SetJsonDocumentValue/{pCollection}/{typeof(T).FullName}/{GetId(pValue)}/{key}", new StringContent(locValue.RootElement.ToString()));
+                }
             }
         }
 
