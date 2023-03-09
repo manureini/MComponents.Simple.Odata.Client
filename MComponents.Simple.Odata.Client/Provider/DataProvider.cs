@@ -1,6 +1,5 @@
 ﻿using DocumentFormat.OpenXml.Bibliography;
 using DocumentFormat.OpenXml.Office2010.Excel;
-using MComponents.Shared.Localization;
 using MComponents.Simple.Odata.Client.Services;
 using MShared;
 using Polly;
