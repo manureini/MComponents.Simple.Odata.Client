@@ -1,10 +1,7 @@
-﻿using DocumentFormat.OpenXml.Bibliography;
-using DocumentFormat.OpenXml.Office2010.Excel;
-using MComponents.Simple.Odata.Client.Services;
+﻿using MComponents.Simple.Odata.Client.Services;
 using MShared;
 using Polly;
 using Polly.Timeout;
-using Simple.OData.Client;
 using System;
 using System.Collections;
 using System.Collections.Generic;

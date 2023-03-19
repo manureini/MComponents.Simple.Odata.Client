@@ -1,5 +1,4 @@
 ﻿using MComponents.Shared.Attributes;
-using MComponents.Simple.Odata.Client.Provider;
 using MShared;
 using Simple.OData.Client;
 using System;

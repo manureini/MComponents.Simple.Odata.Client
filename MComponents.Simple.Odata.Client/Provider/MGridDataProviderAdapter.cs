@@ -1,5 +1,4 @@
 ﻿using MComponents.MGrid;
-using MComponents.Simple.Odata.Client;
 using Simple.OData.Client;
 using System;
 using System.Collections.Generic;
