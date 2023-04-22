@@ -18,10 +18,15 @@ namespace MComponents.Simple.Odata.Client.Forms
         [Parameter]
         public string NavigationPropertyParentToChild { get; set; }
 
+        [Parameter]
+        public string[] ChildExpands { get; set; }
+
         protected PropertyInfo mNavigationPropertyChildToParent;
         protected PropertyInfo mNavigationPropertyParentToChild;
 
         protected MFormSubmitArgs mLastSubmitArgs;
+
+        public override string[] Expands => ChildExpands;
 
         override async protected Task OnInitializedAsync()
         {
