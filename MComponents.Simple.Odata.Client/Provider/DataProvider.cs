@@ -35,7 +35,7 @@ namespace MComponents.Simple.Odata.Client.Provider
             mOdataService = pOdataService;
             mNetworkStateService = pNetworkStateService;
             mHttpClient = pHttpClient;
-            mTimeoutPolicy = Policy.TimeoutAsync(20, TimeoutStrategy.Pessimistic);
+            mTimeoutPolicy = Policy.TimeoutAsync(30, TimeoutStrategy.Pessimistic);
         }
 
         public async Task<T> Get<T>(Guid pKey, CancellationToken cancellationToken, string pCollection = null, params string[] pExpands) where T : class
@@ -93,16 +93,17 @@ namespace MComponents.Simple.Odata.Client.Provider
             {
                 return null;
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine(ex.ToString());
-                return null;
+                throw;
             }
         }
+
         public Task<T> Get<T>(Guid pKey, string pCollection = null, params string[] pExpands) where T : class
         {
             return Get<T>(pKey, CancellationToken.None, pCollection, pExpands);
         }
+
         private void ReverseSetParentValue(object parentValue)
         {
             var parentType = parentValue.GetType();
@@ -132,6 +133,7 @@ namespace MComponents.Simple.Odata.Client.Provider
                 //    ReverseSetParentValue(propValue);
             }
         }
+
         private void StoreNestedCollections(object pValue)
         {
             var parentType = pValue.GetType();
@@ -184,51 +186,44 @@ namespace MComponents.Simple.Odata.Client.Provider
         {
             pCollection ??= typeof(T).Name;
 
-            try
-            {
-                await mSemaphore.WaitAsync();
+            await mSemaphore.WaitAsync();
 
-                var result = await mTimeoutPolicy.ExecuteAsync(async () =>
+            var result = await mTimeoutPolicy.ExecuteAsync(async () =>
+            {
+                try
                 {
-                    try
+                    if (mCollectionCache.ContainsKey(pCollection))
                     {
-                        if (mCollectionCache.ContainsKey(pCollection))
+                        if (pFilter == null && pExpands == null)
                         {
-                            if (pFilter == null && pExpands == null)
-                            {
-                                return GetFromCache<T>(pCollection);
-                            }
-
-                            mCollectionCache.Remove(pCollection);
+                            return GetFromCache<T>(pCollection);
                         }
 
-                        var odataValues = await mOdataService.Get<T>(pCollection, pFilter, pExpands);
-
-                        AddToCacheInternal(odataValues, pCollection, pExpands != null);
-
-                        var result = GetFromCache<T>(pCollection);
-
-                        if (pFilter != null || pExpands != null)
-                        {
-                            mCollectionCache.Remove(pCollection); //todo implement filter and expand cache
-                        }
-
-                        return result;
+                        mCollectionCache.Remove(pCollection);
                     }
-                    finally
+
+                    var odataValues = await mOdataService.Get<T>(pCollection, pFilter, pExpands);
+
+                    AddToCacheInternal(odataValues, pCollection, pExpands != null);
+
+                    var result = GetFromCache<T>(pCollection);
+
+                    if (pFilter != null || pExpands != null)
                     {
-                        mSemaphore.Release();
+                        mCollectionCache.Remove(pCollection); //todo implement filter and expand cache
                     }
-                });
 
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                return null;
-            }
+                    return result;
+                }
+                finally
+                {
+                    mSemaphore.Release();
+                }
+            });
+
+            return result;
         }
+
         public async Task Create<T>(T pValue, string pCollection = null, params string[] pExpands) where T : class
         {
             pCollection ??= typeof(T).Name;
