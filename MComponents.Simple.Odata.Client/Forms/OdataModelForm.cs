@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace MComponents.Simple.Odata.Client.Forms
 {
-    public class OdataModelForm<T> : ComponentBase where T : class, new()
+    public class OdataModelForm<T> : ComponentBase, IModelForm where T : class, new()
     {
         public T Model { get; protected set; }
 
