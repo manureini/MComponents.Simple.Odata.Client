@@ -10,13 +10,13 @@ namespace MComponents.Simple.Odata.Client.ListViews
 
         public virtual string DetailUrl => typeof(T).Name.ToLower() + "/";
 
-        public void OnBeginAdd(BeginAddArgs<T> args)
+        public virtual void OnBeginAdd(BeginAddArgs<T> args)
         {
             args.Cancelled = true;
             Navigation.NavigateTo(DetailUrl);
         }
 
-        public void OnBeginEdit(BeginEditArgs<T> args)
+        public virtual void OnBeginEdit(BeginEditArgs<T> args)
         {
             args.Cancelled = true;
             dynamic row = args.Row;
